@@ -29,8 +29,16 @@
           alt=""
           aria-hidden="true"
         />
+        <div id="rageHud" class="rage-hud is-hidden" aria-hidden="true">
+          <img src="/assets/naiwa-punching.gif" alt="" aria-hidden="true" />
+          <strong>暴走</strong>
+          <div class="rage-track" aria-hidden="true">
+            <div id="rageBarFill" class="rage-bar-fill"></div>
+          </div>
+          <span id="rageTimeText">3.1s</span>
+        </div>
 
-        <div id="startOverlay" class="overlay">
+        <div id="startOverlay" class="overlay" aria-hidden="false">
           <div class="overlay-card">
             <img class="hero-preview" src="/assets/naiwa-belly-laugh.gif" alt="捧腹大笑的奶蛙" />
             <p class="overlay-kicker">三只大笑奶蛙，合成一次大笑</p>
@@ -43,6 +51,7 @@
               <span><kbd>空格</kbd> 跳跃 / 二段跳</span>
               <span><kbd>S</kbd> 翻滚</span>
               <span><kbd>E</kbd> 释放大笑</span>
+              <span><kbd>P / Esc</kbd> 暂停</span>
             </div>
             <div class="overlay-actions">
               <button id="startButton" class="primary-button" type="button">开始奔跑</button>
@@ -70,7 +79,30 @@
             <p class="leaderboard-note">成绩保存在当前浏览器，手机和电脑会分别记录。</p>
             <ol id="leaderboardList" class="leaderboard-list"></ol>
             <p id="leaderboardEmpty" class="leaderboard-empty">还没有成绩，先跑一局吧！</p>
-            <button id="closeLeaderboardButton" class="primary-button" type="button">返回游戏</button>
+            <button id="closeLeaderboardButton" class="primary-button" type="button">返回主页</button>
+          </div>
+        </div>
+
+        <button id="pauseButton" class="game-pause-button is-hidden" type="button" aria-label="暂停游戏">
+          Ⅱ 暂停
+        </button>
+
+        <div
+          id="pauseOverlay"
+          class="overlay pause-overlay is-hidden"
+          role="dialog"
+          aria-modal="true"
+          aria-hidden="true"
+          aria-labelledby="pauseTitle"
+        >
+          <div class="pause-card">
+            <img src="/assets/naiwa-punching.gif" alt="打拳奶蛙" />
+            <p class="overlay-kicker">PAUSED</p>
+            <h2 id="pauseTitle">先喘口气</h2>
+            <div class="overlay-actions">
+              <button id="resumeButton" class="primary-button" type="button">继续游戏</button>
+              <button id="pauseHomeButton" class="secondary-button" type="button">返回主页</button>
+            </div>
           </div>
         </div>
 

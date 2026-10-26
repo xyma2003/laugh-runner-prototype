@@ -6,11 +6,13 @@ import {
   MAX_LOCAL_LEADERBOARD_ENTRIES,
   PLAYER_MAX_X,
   PLAYER_MIN_X,
+  RAGE_DURATION_MS,
   addLaughCharge,
   addLeaderboardEntry,
   canReleaseLaugh,
   distanceScore,
   droneHoverY,
+  effectRemainingRatio,
   isLaughProtected,
   movePlayerX,
   normalizeLeaderboard,
@@ -79,6 +81,17 @@ describe("obstacle rendering and collision alignment", () => {
     expect(droneHoverY(586, 0, 0)).toBe(586);
     expect(droneHoverY(586, 250, 400)).toBeGreaterThanOrEqual(574);
     expect(droneHoverY(586, 250, 400)).toBeLessThanOrEqual(598);
+  });
+});
+
+describe("rage duration", () => {
+  it("shrinks smoothly from full to empty and stays bounded", () => {
+    const startedAt = 10_000;
+    const expiresAt = startedAt + RAGE_DURATION_MS;
+    expect(effectRemainingRatio(startedAt, expiresAt, RAGE_DURATION_MS)).toBe(1);
+    expect(effectRemainingRatio(startedAt + RAGE_DURATION_MS / 2, expiresAt, RAGE_DURATION_MS)).toBe(0.5);
+    expect(effectRemainingRatio(expiresAt, expiresAt, RAGE_DURATION_MS)).toBe(0);
+    expect(effectRemainingRatio(expiresAt + 500, expiresAt, RAGE_DURATION_MS)).toBe(0);
   });
 });
 

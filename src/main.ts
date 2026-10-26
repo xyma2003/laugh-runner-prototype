@@ -3,12 +3,14 @@ import "./styles.css";
 import {
   LAUGH_GUARD_MS,
   MAX_LAUGH_CHARGE,
+  RAGE_DURATION_MS,
   type LeaderboardEntry,
   addLaughCharge,
   addLeaderboardEntry,
   canReleaseLaugh,
   distanceScore,
   droneHoverY,
+  effectRemainingRatio,
   isLaughProtected,
   movePlayerX,
   normalizeLeaderboard,
@@ -24,6 +26,7 @@ const LEADERBOARD_STORAGE_KEY = "laugh-runner-leaderboard-v1";
 
 type ObstacleKind = "crate" | "spike" | "drone" | "pit";
 type PickupKind = "laugh" | "rage";
+type FrogSpriteState = "running-left" | "running-right" | "belly-laugh" | "punching";
 
 interface Obstacle {
   node: Phaser.GameObjects.Container;
@@ -143,6 +146,9 @@ class RunnerScene extends Phaser.Scene {
   private hintText!: Phaser.GameObjects.Text;
   private chargeSlots: Phaser.GameObjects.Image[] = [];
   private chargeLabel!: Phaser.GameObjects.Text;
+  private rageHud?: HTMLElement;
+  private rageBarFill?: HTMLElement;
+  private rageTimeText?: HTMLElement;
   private hintVersion = 0;
   private leftKey?: Phaser.Input.Keyboard.Key;
   private rightKey?: Phaser.Input.Keyboard.Key;
@@ -153,7 +159,15 @@ class RunnerScene extends Phaser.Scene {
   private frogSpriteState = "";
   private lastHorizontalDirection = 1;
   private leaderboardEntries: LeaderboardEntry[] = [];
+  private paused = false;
   private audio = new TinyAudio();
+  private pauseKeyHandler = (event: KeyboardEvent): void => {
+    if (event.repeat || (event.code !== "KeyP" && event.code !== "Escape")) return;
+    if (!this.running || this.over) return;
+    event.preventDefault();
+    if (this.paused) this.resumeGame();
+    else this.pauseGame();
+  };
 
   constructor() {
     super("runner");
@@ -165,6 +179,7 @@ class RunnerScene extends Phaser.Scene {
 
   preload(): void {
     this.load.image("naiwa-laugh-icon", "/assets/naiwa-belly-laugh.gif");
+    this.load.image("naiwa-punching-icon", "/assets/naiwa-punching.gif");
   }
 
   create(): void {
@@ -192,18 +207,26 @@ class RunnerScene extends Phaser.Scene {
     this.frogSpriteState = "";
     this.lastHorizontalDirection = 1;
     this.leaderboardEntries = this.loadLeaderboard();
+    this.paused = false;
 
     this.createBackground();
     this.frog = this.createFrog();
     this.frog.container.setVisible(false);
     this.frogSprite = document.querySelector<HTMLImageElement>("#frogSprite") ?? undefined;
     this.gameFrame = document.querySelector<HTMLElement>("#gameFrame") ?? undefined;
+    this.rageHud = document.querySelector<HTMLElement>("#rageHud") ?? undefined;
+    this.rageBarFill = document.querySelector<HTMLElement>("#rageBarFill") ?? undefined;
+    this.rageTimeText = document.querySelector<HTMLElement>("#rageTimeText") ?? undefined;
+    this.rageHud?.classList.add("is-hidden");
+    this.rageHud?.setAttribute("aria-hidden", "true");
     this.setFrogSpriteState("running-right");
     this.syncFrogSprite(0);
     this.syncGameState(0);
     this.createHud();
     this.bindControls();
-    this.closeLeaderboard();
+    this.hideLeaderboard();
+    this.hidePauseOverlay();
+    this.setPauseButtonVisible(false);
     this.renderLeaderboard();
 
     const overlay = document.querySelector<HTMLDivElement>("#startOverlay");
@@ -211,15 +234,18 @@ class RunnerScene extends Phaser.Scene {
     if (startButton) {
       startButton.onclick = () => {
         overlay?.classList.add("is-hidden");
+        overlay?.setAttribute("aria-hidden", "true");
         this.startRun();
       };
     }
 
     if (this.autoStart) {
       overlay?.classList.add("is-hidden");
+      overlay?.setAttribute("aria-hidden", "true");
       this.startRun();
     } else {
       overlay?.classList.remove("is-hidden");
+      overlay?.setAttribute("aria-hidden", "false");
     }
   }
 
@@ -246,7 +272,7 @@ class RunnerScene extends Phaser.Scene {
     this.updateWorldObjects(dt, speed, time);
     this.spawnWorldObjects(time);
     this.checkCollisions(time);
-    this.updateHud();
+    this.updateHud(time);
     this.syncGameState(time);
   }
 
@@ -255,12 +281,13 @@ class RunnerScene extends Phaser.Scene {
     this.audio.unlock();
     this.running = true;
     this.setFrogSpriteState("running-right");
+    this.setPauseButtonVisible(true);
     const now = this.time.now;
     // Let a new player collect the first three teaching faces before the first obstacle arrives.
     this.nextObstacleAt = now + 10000;
     this.nextPickupAt = now + 600;
     this.nextRageAt = now + 9000;
-    this.showHint("A/D移动 · 空格跳跃 · S翻滚 · E大笑", 3200);
+    this.showHint("A/D移动 · 空格跳跃 · S翻滚 · E大笑 · P暂停", 3200);
   }
 
   private createBackground(): void {
@@ -510,6 +537,9 @@ class RunnerScene extends Phaser.Scene {
     const laughButton = document.querySelector<HTMLButtonElement>("#laughButton");
     const leaderboardButton = document.querySelector<HTMLButtonElement>("#leaderboardButton");
     const closeLeaderboardButton = document.querySelector<HTMLButtonElement>("#closeLeaderboardButton");
+    const pauseButton = document.querySelector<HTMLButtonElement>("#pauseButton");
+    const resumeButton = document.querySelector<HTMLButtonElement>("#resumeButton");
+    const pauseHomeButton = document.querySelector<HTMLButtonElement>("#pauseHomeButton");
     if (leftButton) {
       leftButton.onpointerdown = (event) => { event.stopPropagation(); this.touchLeftDown = true; };
       leftButton.onpointerup = () => { this.touchLeftDown = false; };
@@ -534,9 +564,33 @@ class RunnerScene extends Phaser.Scene {
     if (closeLeaderboardButton) {
       closeLeaderboardButton.onclick = (event) => {
         event.stopPropagation();
-        this.closeLeaderboard();
+        this.returnToHome();
       };
     }
+    if (pauseButton) {
+      pauseButton.onclick = (event) => {
+        event.stopPropagation();
+        this.pauseGame();
+      };
+    }
+    if (resumeButton) {
+      resumeButton.onclick = (event) => {
+        event.stopPropagation();
+        this.resumeGame();
+      };
+    }
+    if (pauseHomeButton) {
+      pauseHomeButton.onclick = (event) => {
+        event.stopPropagation();
+        this.returnToHome();
+      };
+    }
+
+    window.removeEventListener("keydown", this.pauseKeyHandler);
+    window.addEventListener("keydown", this.pauseKeyHandler);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      window.removeEventListener("keydown", this.pauseKeyHandler);
+    });
   }
 
   private jump(): void {
@@ -612,9 +666,9 @@ class RunnerScene extends Phaser.Scene {
       ((this.rightKey?.isDown || this.touchRightDown) ? 1 : 0) -
       ((this.leftKey?.isDown || this.touchLeftDown) ? 1 : 0);
     if (horizontalDirection !== 0) this.lastHorizontalDirection = horizontalDirection;
-    if (time >= this.laughingUntil) {
-      this.setFrogSpriteState(this.lastHorizontalDirection < 0 ? "running-left" : "running-right");
-    }
+    if (time < this.laughingUntil) this.setFrogSpriteState("belly-laugh");
+    else if (time < this.rageUntil) this.setFrogSpriteState("punching");
+    else this.setFrogSpriteState(this.lastHorizontalDirection < 0 ? "running-left" : "running-right");
     this.playerX = movePlayerX(this.playerX, horizontalDirection, dt);
     this.frog.container.x = this.playerX + Math.sin(time * 0.008) * 2.5;
 
@@ -632,7 +686,6 @@ class RunnerScene extends Phaser.Scene {
 
     const rolling = time < this.rollingUntil;
     const laughing = time < this.laughingUntil;
-    const raging = time < this.rageUntil;
     const targetScaleX = laughing ? 1.08 : 1;
     const targetScaleY = rolling ? 0.58 : laughing ? 0.94 : 1;
     const targetAngle = rolling
@@ -647,9 +700,9 @@ class RunnerScene extends Phaser.Scene {
       Phaser.Math.DegToRad(targetAngle),
       0.28,
     ) * (180 / Math.PI);
-    this.frog.body.setFillStyle(raging ? 0xff7b42 : 0xefbd38);
-    this.frog.head.setFillStyle(raging ? 0xff8a4d : 0xf3c447);
-    this.frog.belly.setFillStyle(raging ? 0xffb146 : 0xf4d590);
+    this.frog.body.setFillStyle(0xefbd38);
+    this.frog.head.setFillStyle(0xf3c447);
+    this.frog.belly.setFillStyle(0xf4d590);
   }
 
   private animateFrog(phase: number, time: number): void {
@@ -687,20 +740,28 @@ class RunnerScene extends Phaser.Scene {
     this.frog.pupils.forEach((pupil) => pupil.setVisible(!active));
     this.frog.eyes.forEach((eye) => eye.setScale(1, active ? 0.46 : 1));
     this.setFrogSpriteState(
-      active ? "belly-laugh" : this.lastHorizontalDirection < 0 ? "running-left" : "running-right",
+      active
+        ? "belly-laugh"
+        : this.time.now < this.rageUntil
+          ? "punching"
+          : this.lastHorizontalDirection < 0
+            ? "running-left"
+            : "running-right",
     );
   }
 
-  private setFrogSpriteState(state: "running-left" | "running-right" | "belly-laugh"): void {
+  private setFrogSpriteState(state: FrogSpriteState): void {
     if (!this.frogSprite || this.frogSpriteState === state) return;
     this.frogSpriteState = state;
     const sources = {
       "running-left": "/assets/naiwa-running-left.gif",
       "running-right": "/assets/naiwa-running-right.gif",
       "belly-laugh": "/assets/naiwa-belly-laugh.gif",
+      punching: "/assets/naiwa-punching.gif",
     } as const;
     this.frogSprite.src = sources[state];
     this.frogSprite.classList.toggle("is-laughing", state === "belly-laugh");
+    this.frogSprite.classList.toggle("is-raging", state === "punching");
   }
 
   private syncFrogSprite(time: number): void {
@@ -716,8 +777,14 @@ class RunnerScene extends Phaser.Scene {
   private syncGameState(time: number): void {
     if (!this.gameFrame) return;
     this.gameFrame.dataset.laughCharge = String(this.laughCharge);
-    this.gameFrame.dataset.running = String(this.running && !this.over);
+    this.gameFrame.dataset.running = String(this.running && !this.over && !this.paused);
+    this.gameFrame.dataset.paused = String(this.paused);
     this.gameFrame.dataset.protected = String(isLaughProtected(time, this.laughGuardUntil));
+    this.gameFrame.dataset.rageRatio = effectRemainingRatio(
+      time,
+      this.rageUntil,
+      RAGE_DURATION_MS,
+    ).toFixed(3);
     this.gameFrame.dataset.spriteState = this.frogSpriteState;
     this.gameFrame.dataset.playerX = String(Math.round(this.playerX));
     this.gameFrame.dataset.obstacleCount = String(this.obstacles.length);
@@ -785,10 +852,57 @@ class RunnerScene extends Phaser.Scene {
     overlay?.setAttribute("aria-hidden", "false");
   }
 
-  private closeLeaderboard(): void {
+  private hideLeaderboard(): void {
     const overlay = document.querySelector<HTMLDivElement>("#leaderboardOverlay");
+    if (overlay?.contains(document.activeElement)) {
+      (document.activeElement as HTMLElement).blur();
+    }
     overlay?.classList.add("is-hidden");
     overlay?.setAttribute("aria-hidden", "true");
+  }
+
+  private setPauseButtonVisible(visible: boolean): void {
+    const button = document.querySelector<HTMLButtonElement>("#pauseButton");
+    button?.classList.toggle("is-hidden", !visible);
+  }
+
+  private hidePauseOverlay(): void {
+    const overlay = document.querySelector<HTMLDivElement>("#pauseOverlay");
+    if (overlay?.contains(document.activeElement)) {
+      (document.activeElement as HTMLElement).blur();
+    }
+    overlay?.classList.add("is-hidden");
+    overlay?.setAttribute("aria-hidden", "true");
+  }
+
+  private pauseGame(): void {
+    if (!this.running || this.over || this.paused) return;
+    this.paused = true;
+    this.setPauseButtonVisible(false);
+    const overlay = document.querySelector<HTMLDivElement>("#pauseOverlay");
+    overlay?.classList.remove("is-hidden");
+    overlay?.setAttribute("aria-hidden", "false");
+    this.syncGameState(this.time.now);
+    this.scene.pause();
+  }
+
+  private resumeGame(): void {
+    if (!this.paused) return;
+    this.paused = false;
+    this.hidePauseOverlay();
+    this.setPauseButtonVisible(true);
+    this.scene.resume();
+    this.syncGameState(this.time.now);
+  }
+
+  private returnToHome(): void {
+    const wasPaused = this.paused;
+    this.paused = false;
+    this.hideLeaderboard();
+    this.hidePauseOverlay();
+    this.setPauseButtonVisible(false);
+    if (wasPaused) this.scene.resume();
+    this.scene.restart({ autoStart: false });
   }
 
   private moveScenery(dt: number, speed: number): void {
@@ -896,20 +1010,10 @@ class RunnerScene extends Phaser.Scene {
         .setDisplaySize(58, 63);
       node.add([aura, laughIcon]);
     } else {
-      const face = this.add.circle(0, 0, 29, fill).setStrokeStyle(5, 0x18262d);
-      const leftEye = this.add.circle(-9, -6, 3.5, 0x18262d);
-      const rightEye = this.add.circle(9, -6, 3.5, 0x18262d);
-      const mouth = this.add.graphics();
-      mouth.lineStyle(4, 0x18262d, 1);
-      mouth.beginPath();
-      mouth.moveTo(-12, -12);
-      mouth.lineTo(-3, -8);
-      mouth.moveTo(12, -12);
-      mouth.lineTo(3, -8);
-      mouth.strokePath();
-      mouth.fillStyle(0x18262d, 1);
-      mouth.fillRect(-10, 6, 20, 5);
-      node.add([aura, face, leftEye, rightEye, mouth]);
+      const punchingIcon = this.add
+        .image(0, 0, "naiwa-punching-icon")
+        .setDisplaySize(59, 64);
+      node.add([aura, punchingIcon]);
     }
     this.tweens.add({
       targets: aura,
@@ -1007,15 +1111,16 @@ class RunnerScene extends Phaser.Scene {
       );
       this.burst(x, y, 0xffdf56, 9, 1);
     } else {
-      this.rageUntil = time + 3100;
+      this.rageUntil = time + RAGE_DURATION_MS;
       this.bonusScore += 150;
       this.audio.tone(145, 0.28, "sawtooth", 0.06);
-      this.showHint("气鼓鼓暴走！撞飞前方障碍", 1500);
+      this.showHint("打拳暴走！时间条清空前可撞飞障碍", 1500);
       this.burst(x, y, 0xff7448, 13, 1.2);
       this.cameras.main.flash(120, 255, 140, 70, false);
+      if (time >= this.laughingUntil) this.setFrogSpriteState("punching");
     }
     this.removePickup(pickup);
-    this.updateHud();
+    this.updateHud(time);
   }
 
   private destroyObstacle(obstacle: Obstacle, dramatic: boolean): void {
@@ -1065,7 +1170,7 @@ class RunnerScene extends Phaser.Scene {
     }
   }
 
-  private updateHud(): void {
+  private updateHud(time = this.time.now): void {
     const score = distanceScore(this.distanceMeters, this.bonusScore);
     this.scoreText.setText(score.toString().padStart(6, "0"));
     this.distanceText.setText(`${Math.floor(this.distanceMeters)} m`);
@@ -1083,6 +1188,13 @@ class RunnerScene extends Phaser.Scene {
       this.chargeLabel.setText(`差${MAX_LAUGH_CHARGE - this.laughCharge}只`);
       this.chargeLabel.setColor("#ba4f2d");
     }
+
+    const rageRatio = effectRemainingRatio(time, this.rageUntil, RAGE_DURATION_MS);
+    this.rageHud?.classList.toggle("is-hidden", rageRatio <= 0);
+    this.rageHud?.setAttribute("aria-hidden", String(rageRatio <= 0));
+    if (this.rageBarFill) this.rageBarFill.style.transform = `scaleX(${rageRatio})`;
+    const remainingSeconds = Math.max(0, Math.ceil((this.rageUntil - time) / 100) / 10);
+    if (this.rageTimeText) this.rageTimeText.textContent = `${remainingSeconds.toFixed(1)}s`;
   }
 
   private showHint(message: string, duration = 0): void {
@@ -1102,6 +1214,7 @@ class RunnerScene extends Phaser.Scene {
     if (this.over) return;
     this.over = true;
     this.running = false;
+    this.setPauseButtonVisible(false);
     this.audio.crash();
     this.cameras.main.shake(250, 0.018);
 

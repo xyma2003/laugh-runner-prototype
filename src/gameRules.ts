@@ -4,6 +4,7 @@ export const PLAYER_MAX_X = 1040;
 export const PLAYER_STRAFE_SPEED = 330;
 export const LAUGH_GUARD_MS = 3200;
 export const LAUGH_RESPAWN_DELAY_MS = 5000;
+export const RAGE_DURATION_MS = 3100;
 export const MAX_LOCAL_LEADERBOARD_ENTRIES = 5;
 
 export interface LeaderboardEntry {
@@ -45,6 +46,11 @@ export function postponeObstacleSpawn(currentSpawnAt: number, now: number): numb
 
 export function droneHoverY(floorY: number, time: number, obstacleX: number): number {
   return floorY + Math.sin(time * 0.006 + obstacleX * 0.01) * 12;
+}
+
+export function effectRemainingRatio(now: number, expiresAt: number, duration: number): number {
+  if (duration <= 0) return 0;
+  return Math.max(0, Math.min(1, (expiresAt - now) / duration));
 }
 
 export function normalizeLeaderboard(entries: unknown): LeaderboardEntry[] {
