@@ -4,6 +4,13 @@ export const PLAYER_MAX_X = 1040;
 export const PLAYER_STRAFE_SPEED = 330;
 export const LAUGH_GUARD_MS = 3200;
 export const LAUGH_RESPAWN_DELAY_MS = 5000;
+export const MAX_LOCAL_LEADERBOARD_ENTRIES = 5;
+
+export interface LeaderboardEntry {
+  score: number;
+  distanceMeters: number;
+  createdAt: number;
+}
 
 export function addLaughCharge(current: number, amount = 1): number {
   return Math.min(MAX_LAUGH_CHARGE, Math.max(0, current + amount));
@@ -38,4 +45,41 @@ export function postponeObstacleSpawn(currentSpawnAt: number, now: number): numb
 
 export function droneHoverY(floorY: number, time: number, obstacleX: number): number {
   return floorY + Math.sin(time * 0.006 + obstacleX * 0.01) * 12;
+}
+
+export function normalizeLeaderboard(entries: unknown): LeaderboardEntry[] {
+  if (!Array.isArray(entries)) return [];
+
+  return entries
+    .filter((entry): entry is Record<string, unknown> => {
+      if (!entry || typeof entry !== "object") return false;
+      return (
+        Number.isFinite(entry.score) &&
+        Number.isFinite(entry.distanceMeters) &&
+        Number.isFinite(entry.createdAt) &&
+        Number(entry.score) >= 0 &&
+        Number(entry.distanceMeters) >= 0 &&
+        Number(entry.createdAt) > 0
+      );
+    })
+    .map((entry) => ({
+      score: Math.floor(Number(entry.score)),
+      distanceMeters: Math.floor(Number(entry.distanceMeters)),
+      createdAt: Math.floor(Number(entry.createdAt)),
+    }))
+    .sort(
+      (left, right) =>
+        right.score - left.score ||
+        right.distanceMeters - left.distanceMeters ||
+        left.createdAt - right.createdAt,
+    )
+    .slice(0, MAX_LOCAL_LEADERBOARD_ENTRIES);
+}
+
+export function addLeaderboardEntry(
+  entries: unknown,
+  entry: LeaderboardEntry,
+): LeaderboardEntry[] {
+  const current = Array.isArray(entries) ? entries : [];
+  return normalizeLeaderboard([...current, entry]);
 }

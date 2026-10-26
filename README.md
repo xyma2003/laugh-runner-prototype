@@ -25,6 +25,7 @@ npm run dev
 - 大笑后重置全部障碍，获得 3.2 秒保护，并延迟 5 秒重新生成障碍
 - 气鼓鼓暴走道具
 - 距离、分数、本地最高分与立即重开
+- 本机 Top 5 排行榜（自动记录分数、距离和时间，保存在当前浏览器）
 
 跑步与捧腹大笑角色动画来自 [Codex_pet_naiwa](https://github.com/lyhkevin/Codex_pet_naiwa)，具体文件、来源提交与 SHA-256 见 [ASSET_SOURCES.md](./ASSET_SOURCES.md)。其他图形与程序化音效为原型自制。
 

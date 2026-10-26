@@ -197,6 +197,7 @@ kbd {
 }
 
 .primary-button,
+.secondary-button,
 .touch-controls button {
   border: 3px solid var(--ink);
   color: var(--ink);
@@ -213,10 +214,129 @@ kbd {
   font-size: 17px;
 }
 
+.overlay-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+}
+
+.secondary-button {
+  padding: 13px 22px;
+  border-radius: 14px;
+  background: #eaf7db;
+  font-size: 17px;
+}
+
 .primary-button:active,
+.secondary-button:active,
 .touch-controls button:active {
   transform: translate(3px, 3px);
   box-shadow: 1px 2px 0 var(--ink);
+}
+
+.leaderboard-overlay {
+  z-index: 7;
+}
+
+.leaderboard-card {
+  width: min(570px, 94%);
+  max-height: calc(100% - 24px);
+  overflow-y: auto;
+  padding: clamp(18px, 3vw, 28px);
+  border: 4px solid var(--ink);
+  border-radius: 24px;
+  background: var(--cream);
+  box-shadow: 10px 10px 0 var(--ink);
+  text-align: center;
+}
+
+.leaderboard-heading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+}
+
+.leaderboard-heading img {
+  width: 72px;
+  height: 78px;
+  object-fit: contain;
+  filter: drop-shadow(0 3px 0 rgba(24, 38, 45, 0.22));
+}
+
+.leaderboard-heading h2 {
+  margin: 0;
+  font-family: "ZCOOL KuaiLe", "PingFang SC", sans-serif;
+  font-size: clamp(30px, 4vw, 46px);
+  font-weight: 400;
+}
+
+.leaderboard-heading .overlay-kicker {
+  margin: 0 0 2px;
+  text-align: left;
+}
+
+.leaderboard-note {
+  margin: 4px 0 14px;
+  color: #52726e;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.leaderboard-list {
+  display: grid;
+  gap: 7px;
+  margin: 0 0 16px;
+  padding: 0;
+  list-style: none;
+  counter-reset: rank;
+}
+
+.leaderboard-list li {
+  counter-increment: rank;
+  display: grid;
+  grid-template-columns: 48px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 43px;
+  padding: 7px 13px;
+  border: 2px solid var(--ink);
+  border-radius: 12px;
+  background: #eef8df;
+  text-align: left;
+}
+
+.leaderboard-list li::before {
+  content: "#" counter(rank);
+  color: #4d746f;
+  font-weight: 900;
+}
+
+.leaderboard-list li:first-child {
+  background: #ffea8a;
+}
+
+.leaderboard-score {
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.leaderboard-meta {
+  color: #52726e;
+  font-size: 11px;
+  font-weight: 800;
+  text-align: right;
+}
+
+.leaderboard-empty {
+  margin: 20px 0;
+  color: #52726e;
+  font-weight: 900;
+}
+
+.leaderboard-empty.is-hidden {
+  display: none;
 }
 
 .touch-controls {

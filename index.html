@@ -44,7 +44,33 @@
               <span><kbd>S</kbd> 翻滚</span>
               <span><kbd>E</kbd> 释放大笑</span>
             </div>
-            <button id="startButton" class="primary-button" type="button">开始奔跑</button>
+            <div class="overlay-actions">
+              <button id="startButton" class="primary-button" type="button">开始奔跑</button>
+              <button id="leaderboardButton" class="secondary-button" type="button">本机排行榜</button>
+            </div>
+          </div>
+        </div>
+
+        <div
+          id="leaderboardOverlay"
+          class="overlay leaderboard-overlay is-hidden"
+          role="dialog"
+          aria-modal="true"
+          aria-hidden="true"
+          aria-labelledby="leaderboardTitle"
+        >
+          <div class="leaderboard-card">
+            <div class="leaderboard-heading">
+              <img src="/assets/naiwa-belly-laugh.gif" alt="大笑奶蛙" />
+              <div>
+                <p class="overlay-kicker">LOCAL TOP 5</p>
+                <h2 id="leaderboardTitle">本机排行榜</h2>
+              </div>
+            </div>
+            <p class="leaderboard-note">成绩保存在当前浏览器，手机和电脑会分别记录。</p>
+            <ol id="leaderboardList" class="leaderboard-list"></ol>
+            <p id="leaderboardEmpty" class="leaderboard-empty">还没有成绩，先跑一局吧！</p>
+            <button id="closeLeaderboardButton" class="primary-button" type="button">返回游戏</button>
           </div>
         </div>
 

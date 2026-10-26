@@ -3,12 +3,15 @@ import "./styles.css";
 import {
   LAUGH_GUARD_MS,
   MAX_LAUGH_CHARGE,
+  type LeaderboardEntry,
   addLaughCharge,
+  addLeaderboardEntry,
   canReleaseLaugh,
   distanceScore,
   droneHoverY,
   isLaughProtected,
   movePlayerX,
+  normalizeLeaderboard,
   postponeObstacleSpawn,
   runnerSpeed,
 } from "./gameRules";
@@ -17,6 +20,7 @@ const GAME_WIDTH = 1280;
 const GAME_HEIGHT = 720;
 const FLOOR_Y = 586;
 const PLAYER_X = 210;
+const LEADERBOARD_STORAGE_KEY = "laugh-runner-leaderboard-v1";
 
 type ObstacleKind = "crate" | "spike" | "drone" | "pit";
 type PickupKind = "laugh" | "rage";
@@ -148,6 +152,7 @@ class RunnerScene extends Phaser.Scene {
   private gameFrame?: HTMLElement;
   private frogSpriteState = "";
   private lastHorizontalDirection = 1;
+  private leaderboardEntries: LeaderboardEntry[] = [];
   private audio = new TinyAudio();
 
   constructor() {
@@ -186,6 +191,7 @@ class RunnerScene extends Phaser.Scene {
     this.hintVersion = 0;
     this.frogSpriteState = "";
     this.lastHorizontalDirection = 1;
+    this.leaderboardEntries = this.loadLeaderboard();
 
     this.createBackground();
     this.frog = this.createFrog();
@@ -197,6 +203,8 @@ class RunnerScene extends Phaser.Scene {
     this.syncGameState(0);
     this.createHud();
     this.bindControls();
+    this.closeLeaderboard();
+    this.renderLeaderboard();
 
     const overlay = document.querySelector<HTMLDivElement>("#startOverlay");
     const startButton = document.querySelector<HTMLButtonElement>("#startButton");
@@ -500,6 +508,8 @@ class RunnerScene extends Phaser.Scene {
     const jumpButton = document.querySelector<HTMLButtonElement>("#jumpButton");
     const rollButton = document.querySelector<HTMLButtonElement>("#rollButton");
     const laughButton = document.querySelector<HTMLButtonElement>("#laughButton");
+    const leaderboardButton = document.querySelector<HTMLButtonElement>("#leaderboardButton");
+    const closeLeaderboardButton = document.querySelector<HTMLButtonElement>("#closeLeaderboardButton");
     if (leftButton) {
       leftButton.onpointerdown = (event) => { event.stopPropagation(); this.touchLeftDown = true; };
       leftButton.onpointerup = () => { this.touchLeftDown = false; };
@@ -515,6 +525,18 @@ class RunnerScene extends Phaser.Scene {
     if (jumpButton) jumpButton.onclick = (event) => { event.stopPropagation(); this.jump(); };
     if (rollButton) rollButton.onclick = (event) => { event.stopPropagation(); this.roll(); };
     if (laughButton) laughButton.onclick = (event) => { event.stopPropagation(); this.releaseLaugh(); };
+    if (leaderboardButton) {
+      leaderboardButton.onclick = (event) => {
+        event.stopPropagation();
+        this.openLeaderboard();
+      };
+    }
+    if (closeLeaderboardButton) {
+      closeLeaderboardButton.onclick = (event) => {
+        event.stopPropagation();
+        this.closeLeaderboard();
+      };
+    }
   }
 
   private jump(): void {
@@ -699,6 +721,74 @@ class RunnerScene extends Phaser.Scene {
     this.gameFrame.dataset.spriteState = this.frogSpriteState;
     this.gameFrame.dataset.playerX = String(Math.round(this.playerX));
     this.gameFrame.dataset.obstacleCount = String(this.obstacles.length);
+    this.gameFrame.dataset.leaderboardCount = String(this.leaderboardEntries.length);
+  }
+
+  private loadLeaderboard(): LeaderboardEntry[] {
+    try {
+      const saved = localStorage.getItem(LEADERBOARD_STORAGE_KEY);
+      return normalizeLeaderboard(saved ? JSON.parse(saved) : []);
+    } catch {
+      return [];
+    }
+  }
+
+  private recordLeaderboard(score: number, distanceMeters: number): number | null {
+    const createdAt = Date.now();
+    this.leaderboardEntries = addLeaderboardEntry(this.leaderboardEntries, {
+      score,
+      distanceMeters,
+      createdAt,
+    });
+    try {
+      localStorage.setItem(LEADERBOARD_STORAGE_KEY, JSON.stringify(this.leaderboardEntries));
+    } catch {
+      // The run still finishes normally when storage is unavailable.
+    }
+    this.renderLeaderboard();
+    const index = this.leaderboardEntries.findIndex((entry) => entry.createdAt === createdAt);
+    return index >= 0 ? index + 1 : null;
+  }
+
+  private renderLeaderboard(): void {
+    const list = document.querySelector<HTMLOListElement>("#leaderboardList");
+    const empty = document.querySelector<HTMLElement>("#leaderboardEmpty");
+    if (!list || !empty) return;
+
+    list.replaceChildren();
+    empty.classList.toggle("is-hidden", this.leaderboardEntries.length > 0);
+    const dateFormatter = new Intl.DateTimeFormat("zh-CN", {
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+
+    this.leaderboardEntries.forEach((entry) => {
+      const row = document.createElement("li");
+      const score = document.createElement("span");
+      const meta = document.createElement("span");
+      score.className = "leaderboard-score";
+      meta.className = "leaderboard-meta";
+      score.textContent = `${entry.score} 分`;
+      meta.textContent = `${entry.distanceMeters} m · ${dateFormatter.format(entry.createdAt)}`;
+      row.append(score, meta);
+      list.append(row);
+    });
+  }
+
+  private openLeaderboard(): void {
+    this.renderLeaderboard();
+    const overlay = document.querySelector<HTMLDivElement>("#leaderboardOverlay");
+    overlay?.classList.remove("is-hidden");
+    overlay?.setAttribute("aria-hidden", "false");
+  }
+
+  private closeLeaderboard(): void {
+    const overlay = document.querySelector<HTMLDivElement>("#leaderboardOverlay");
+    overlay?.classList.add("is-hidden");
+    overlay?.setAttribute("aria-hidden", "true");
   }
 
   private moveScenery(dt: number, speed: number): void {
@@ -1019,6 +1109,7 @@ class RunnerScene extends Phaser.Scene {
     const previousBest = Number.parseInt(localStorage.getItem("laugh-runner-best") ?? "0", 10);
     const best = Math.max(previousBest, score);
     localStorage.setItem("laugh-runner-best", String(best));
+    const leaderboardRank = this.recordLeaderboard(score, Math.floor(this.distanceMeters));
 
     this.frog.container.setAngle(86);
     this.tweens.add({
@@ -1031,11 +1122,11 @@ class RunnerScene extends Phaser.Scene {
     this.time.delayedCall(350, () => {
       const shade = this.add.rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, 0x142d38, 0.68).setOrigin(0).setDepth(50);
       const panel = this.add
-        .rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, 520, 335, 0xfff9df)
+        .rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, 610, 365, 0xfff9df)
         .setStrokeStyle(7, 0x18262d)
         .setDepth(51);
       const title = this.add
-        .text(GAME_WIDTH / 2, 255, "笑着摔出去了", {
+        .text(GAME_WIDTH / 2, 240, "笑着摔出去了", {
           fontFamily: "ZCOOL KuaiLe, sans-serif",
           fontSize: "48px",
           color: "#18262d",
@@ -1051,8 +1142,8 @@ class RunnerScene extends Phaser.Scene {
       const result = this.add
         .text(
           GAME_WIDTH / 2,
-          332,
-          `撞上：${obstacleNames[obstacleKind]}\n本次 ${score} 分  ·  最远 ${Math.floor(this.distanceMeters)} m\n最高分 ${best}`,
+          325,
+          `撞上：${obstacleNames[obstacleKind]}\n本次 ${score} 分  ·  最远 ${Math.floor(this.distanceMeters)} m\n最高分 ${best}  ·  ${leaderboardRank ? `本机排行 #${leaderboardRank}` : "未进入本机 Top 5"}`,
           {
           fontFamily: "Nunito, sans-serif",
           fontSize: "21px",
@@ -1064,14 +1155,28 @@ class RunnerScene extends Phaser.Scene {
         .setOrigin(0.5)
         .setDepth(52);
       const restart = this.add
-        .rectangle(GAME_WIDTH / 2, 450, 236, 64, 0xffd744)
+        .rectangle(GAME_WIDTH / 2 + 125, 465, 220, 64, 0xffd744)
         .setStrokeStyle(5, 0x18262d)
         .setInteractive({ useHandCursor: true })
         .setDepth(52);
       const restartText = this.add
-        .text(GAME_WIDTH / 2, 450, "再跑一次", {
+        .text(GAME_WIDTH / 2 + 125, 465, "再跑一次", {
           fontFamily: "Nunito, sans-serif",
           fontSize: "24px",
+          fontStyle: "900",
+          color: "#18262d",
+        })
+        .setOrigin(0.5)
+        .setDepth(53);
+      const leaderboard = this.add
+        .rectangle(GAME_WIDTH / 2 - 125, 465, 220, 64, 0xeaf7db)
+        .setStrokeStyle(5, 0x18262d)
+        .setInteractive({ useHandCursor: true })
+        .setDepth(52);
+      const leaderboardText = this.add
+        .text(GAME_WIDTH / 2 - 125, 465, "查看排行榜", {
+          fontFamily: "Nunito, sans-serif",
+          fontSize: "22px",
           fontStyle: "900",
           color: "#18262d",
         })
@@ -1080,6 +1185,9 @@ class RunnerScene extends Phaser.Scene {
 
       restart.on("pointerover", () => restart.setFillStyle(0xffe96a));
       restart.on("pointerout", () => restart.setFillStyle(0xffd744));
+      leaderboard.on("pointerover", () => leaderboard.setFillStyle(0xf4ffe8));
+      leaderboard.on("pointerout", () => leaderboard.setFillStyle(0xeaf7db));
+      leaderboard.on("pointerdown", () => this.openLeaderboard());
       restart.on("pointerdown", () => {
         shade.destroy();
         panel.destroy();
@@ -1087,6 +1195,8 @@ class RunnerScene extends Phaser.Scene {
         result.destroy();
         restart.destroy();
         restartText.destroy();
+        leaderboard.destroy();
+        leaderboardText.destroy();
         this.scene.restart({ autoStart: true });
       });
     });
