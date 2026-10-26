@@ -2,6 +2,7 @@ export const MAX_LAUGH_CHARGE = 3;
 export const PLAYER_MIN_X = 105;
 export const PLAYER_MAX_X = 570;
 export const PLAYER_STRAFE_SPEED = 330;
+export const LAUGH_GUARD_MS = 1600;
 
 export function addLaughCharge(current: number, amount = 1): number {
   return Math.min(MAX_LAUGH_CHARGE, Math.max(0, current + amount));
@@ -24,4 +25,8 @@ export function movePlayerX(current: number, direction: number, deltaSeconds: nu
   const normalizedDirection = Math.max(-1, Math.min(1, direction));
   const next = current + normalizedDirection * PLAYER_STRAFE_SPEED * Math.max(0, deltaSeconds);
   return Math.max(PLAYER_MIN_X, Math.min(PLAYER_MAX_X, next));
+}
+
+export function isLaughProtected(now: number, protectedUntil: number): boolean {
+  return now < protectedUntil;
 }

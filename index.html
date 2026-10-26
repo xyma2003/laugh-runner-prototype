@@ -20,14 +20,19 @@
         <div class="topbar-note">原创机制原型 · 横屏体验</div>
       </header>
 
-      <section class="game-frame" aria-label="笑蛙冲刺游戏区域">
+      <section id="gameFrame" class="game-frame" aria-label="笑蛙冲刺游戏区域">
         <div id="game"></div>
+        <img
+          id="frogSprite"
+          class="frog-sprite"
+          src="/assets/naiwa-running-right.gif"
+          alt=""
+          aria-hidden="true"
+        />
 
         <div id="startOverlay" class="overlay">
           <div class="overlay-card">
-            <div class="hero-face" aria-hidden="true">
-              <span></span><span></span>
-            </div>
+            <img class="hero-preview" src="/assets/naiwa-belly-laugh.gif" alt="捧腹大笑的奶蛙" />
             <p class="overlay-kicker">三只笑脸，合成一次大笑</p>
             <h2>跑起来，别憋笑</h2>
             <p>
@@ -59,7 +64,8 @@
       </section>
 
       <footer>
-        当前版本验证左右移动、跑、跳、翻滚与捧腹大笑冲击波；角色为程序绘制的原型形象。
+        当前版本验证左右移动、跑、跳、翻滚与捧腹大笑冲击波；
+        <a href="https://github.com/lyhkevin/Codex_pet_naiwa" target="_blank" rel="noreferrer">奶蛙 GIF 素材来源</a>。
       </footer>
     </main>
     <script type="module" src="/src/main.ts"></script>

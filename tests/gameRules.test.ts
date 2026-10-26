@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   MAX_LAUGH_CHARGE,
+  LAUGH_GUARD_MS,
   PLAYER_MAX_X,
   PLAYER_MIN_X,
   addLaughCharge,
   canReleaseLaugh,
   distanceScore,
+  isLaughProtected,
   movePlayerX,
   runnerSpeed,
 } from "../src/gameRules";
@@ -44,5 +46,14 @@ describe("horizontal movement", () => {
   it("keeps the runner inside the playable lane", () => {
     expect(movePlayerX(PLAYER_MIN_X, -1, 1)).toBe(PLAYER_MIN_X);
     expect(movePlayerX(PLAYER_MAX_X, 1, 1)).toBe(PLAYER_MAX_X);
+  });
+});
+
+describe("laugh protection", () => {
+  it("covers the complete post-skill recovery window", () => {
+    const releasedAt = 5_000;
+    const protectedUntil = releasedAt + LAUGH_GUARD_MS;
+    expect(isLaughProtected(5_900, protectedUntil)).toBe(true);
+    expect(isLaughProtected(protectedUntil, protectedUntil)).toBe(false);
   });
 });

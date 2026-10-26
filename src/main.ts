@@ -1,10 +1,12 @@
 import Phaser from "phaser";
 import "./styles.css";
 import {
+  LAUGH_GUARD_MS,
   MAX_LAUGH_CHARGE,
   addLaughCharge,
   canReleaseLaugh,
   distanceScore,
+  isLaughProtected,
   movePlayerX,
   runnerSpeed,
 } from "./gameRules";
@@ -122,6 +124,7 @@ class RunnerScene extends Phaser.Scene {
   private jumpsUsed = 0;
   private rollingUntil = 0;
   private laughingUntil = 0;
+  private laughGuardUntil = 0;
   private rageUntil = 0;
   private laughCharge = 0;
   private nextObstacleAt = 0;
@@ -139,6 +142,10 @@ class RunnerScene extends Phaser.Scene {
   private rightKey?: Phaser.Input.Keyboard.Key;
   private touchLeftDown = false;
   private touchRightDown = false;
+  private frogSprite?: HTMLImageElement;
+  private gameFrame?: HTMLElement;
+  private frogSpriteState = "";
+  private lastHorizontalDirection = 1;
   private audio = new TinyAudio();
 
   constructor() {
@@ -164,14 +171,23 @@ class RunnerScene extends Phaser.Scene {
     this.jumpsUsed = 0;
     this.rollingUntil = 0;
     this.laughingUntil = 0;
+    this.laughGuardUntil = 0;
     this.rageUntil = 0;
     this.laughCharge = 0;
     this.obstaclesSpawned = 0;
     this.laughPickupsSpawned = 0;
     this.hintVersion = 0;
+    this.frogSpriteState = "";
+    this.lastHorizontalDirection = 1;
 
     this.createBackground();
     this.frog = this.createFrog();
+    this.frog.container.setVisible(false);
+    this.frogSprite = document.querySelector<HTMLImageElement>("#frogSprite") ?? undefined;
+    this.gameFrame = document.querySelector<HTMLElement>("#gameFrame") ?? undefined;
+    this.setFrogSpriteState("running-right");
+    this.syncFrogSprite(0);
+    this.syncGameState(0);
     this.createHud();
     this.bindControls();
 
@@ -199,6 +215,8 @@ class RunnerScene extends Phaser.Scene {
     this.animateFrog(animationPhase, time);
 
     if (!this.running || this.over) {
+      this.syncFrogSprite(time);
+      this.syncGameState(time);
       this.moveScenery(dt, 70);
       return;
     }
@@ -208,19 +226,23 @@ class RunnerScene extends Phaser.Scene {
     this.distanceMeters += speed * dt * 0.011;
 
     this.updatePlayer(dt, time);
+    this.syncFrogSprite(time);
     this.moveScenery(dt, speed);
     this.updateWorldObjects(dt, speed, time);
     this.spawnWorldObjects(time);
     this.checkCollisions(time);
     this.updateHud();
+    this.syncGameState(time);
   }
 
   private startRun(): void {
     if (this.running || this.over) return;
     this.audio.unlock();
     this.running = true;
+    this.setFrogSpriteState("running-right");
     const now = this.time.now;
-    this.nextObstacleAt = now + 4600;
+    // Let a new player collect the first three teaching faces before the first obstacle arrives.
+    this.nextObstacleAt = now + 10000;
     this.nextPickupAt = now + 600;
     this.nextRageAt = now + 9000;
     this.showHint("A/D移动 · 空格跳跃 · S翻滚 · E大笑", 3200);
@@ -522,9 +544,11 @@ class RunnerScene extends Phaser.Scene {
     this.laughCharge = 0;
     this.audio.laugh();
     this.cameras.main.shake(330, 0.013);
-    this.laughingUntil = this.time.now + 620;
+    this.laughingUntil = this.time.now + 1250;
+    this.laughGuardUntil = this.time.now + LAUGH_GUARD_MS;
+    this.nextObstacleAt = Math.max(this.nextObstacleAt, this.time.now + LAUGH_GUARD_MS + 350);
     this.setLaughPose(true);
-    this.time.delayedCall(620, () => this.setLaughPose(false));
+    this.time.delayedCall(1250, () => this.setLaughPose(false));
 
     const pulse = this.add
       .circle(this.frog.container.x + 22, this.frog.container.y - 64, 34, 0xffe55e, 0.12)
@@ -541,13 +565,16 @@ class RunnerScene extends Phaser.Scene {
 
     let destroyed = 0;
     for (const obstacle of [...this.obstacles]) {
-      if (obstacle.kind !== "pit" && obstacle.node.x < 980) {
+      if (obstacle.node.x < GAME_WIDTH + 140) {
         this.destroyObstacle(obstacle, true);
         destroyed += 1;
       }
     }
     this.bonusScore += destroyed * 180;
-    this.showHint(destroyed > 0 ? `齁哈哈哈！震飞 ${destroyed} 个障碍` : "齁哈哈哈！", 850);
+    this.showHint(
+      destroyed > 0 ? `齁哈哈哈！清场 ${destroyed} 个障碍 · 短暂无敌` : "齁哈哈哈！短暂无敌",
+      1250,
+    );
     this.updateHud();
   }
 
@@ -555,6 +582,10 @@ class RunnerScene extends Phaser.Scene {
     const horizontalDirection =
       ((this.rightKey?.isDown || this.touchRightDown) ? 1 : 0) -
       ((this.leftKey?.isDown || this.touchLeftDown) ? 1 : 0);
+    if (horizontalDirection !== 0) this.lastHorizontalDirection = horizontalDirection;
+    if (time >= this.laughingUntil) {
+      this.setFrogSpriteState(this.lastHorizontalDirection < 0 ? "running-left" : "running-right");
+    }
     this.playerX = movePlayerX(this.playerX, horizontalDirection, dt);
     this.frog.container.x = this.playerX + Math.sin(time * 0.008) * 2.5;
 
@@ -626,6 +657,39 @@ class RunnerScene extends Phaser.Scene {
     this.frog.laughTongue.setVisible(active);
     this.frog.pupils.forEach((pupil) => pupil.setVisible(!active));
     this.frog.eyes.forEach((eye) => eye.setScale(1, active ? 0.46 : 1));
+    this.setFrogSpriteState(
+      active ? "belly-laugh" : this.lastHorizontalDirection < 0 ? "running-left" : "running-right",
+    );
+  }
+
+  private setFrogSpriteState(state: "running-left" | "running-right" | "belly-laugh"): void {
+    if (!this.frogSprite || this.frogSpriteState === state) return;
+    this.frogSpriteState = state;
+    const sources = {
+      "running-left": "/assets/naiwa-running-left.gif",
+      "running-right": "/assets/naiwa-running-right.gif",
+      "belly-laugh": "/assets/naiwa-belly-laugh.gif",
+    } as const;
+    this.frogSprite.src = sources[state];
+    this.frogSprite.classList.toggle("is-laughing", state === "belly-laugh");
+  }
+
+  private syncFrogSprite(time: number): void {
+    if (!this.frogSprite) return;
+    this.frogSprite.style.left = `${(this.frog.container.x / GAME_WIDTH) * 100}%`;
+    this.frogSprite.style.top = `${(this.frog.container.y / GAME_HEIGHT) * 100}%`;
+    this.frogSprite.style.transform =
+      `translate(-50%, -100%) rotate(${this.frog.container.angle}deg) ` +
+      `scale(${this.frog.container.scaleX}, ${this.frog.container.scaleY})`;
+    this.frogSprite.classList.toggle("is-protected", isLaughProtected(time, this.laughGuardUntil));
+  }
+
+  private syncGameState(time: number): void {
+    if (!this.gameFrame) return;
+    this.gameFrame.dataset.laughCharge = String(this.laughCharge);
+    this.gameFrame.dataset.running = String(this.running && !this.over);
+    this.gameFrame.dataset.protected = String(isLaughProtected(time, this.laughGuardUntil));
+    this.gameFrame.dataset.spriteState = this.frogSpriteState;
   }
 
   private moveScenery(dt: number, speed: number): void {
@@ -776,6 +840,7 @@ class RunnerScene extends Phaser.Scene {
   private checkCollisions(time: number): void {
     const playerBounds = this.playerBounds(time);
     const raging = time < this.rageUntil;
+    const laughProtected = isLaughProtected(time, this.laughGuardUntil);
 
     for (const pickup of [...this.pickups]) {
       const pickupBounds = new Phaser.Geom.Rectangle(
@@ -797,6 +862,11 @@ class RunnerScene extends Phaser.Scene {
         obstacle.height,
       );
       if (!Phaser.Geom.Intersects.RectangleToRectangle(playerBounds, obstacleBounds)) continue;
+
+      if (laughProtected) {
+        this.destroyObstacle(obstacle, obstacle.kind !== "pit");
+        continue;
+      }
 
       if (raging && obstacle.kind !== "pit") {
         this.destroyObstacle(obstacle, true);
