@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   MAX_LAUGH_CHARGE,
+  PLAYER_MAX_X,
+  PLAYER_MIN_X,
   addLaughCharge,
   canReleaseLaugh,
   distanceScore,
+  movePlayerX,
   runnerSpeed,
 } from "../src/gameRules";
 
@@ -29,5 +32,17 @@ describe("difficulty and scoring", () => {
 
   it("combines distance and bonus points", () => {
     expect(distanceScore(12.9, 250)).toBe(379);
+  });
+});
+
+describe("horizontal movement", () => {
+  it("moves left and right with a bounded speed", () => {
+    expect(movePlayerX(210, -1, 0.1)).toBe(177);
+    expect(movePlayerX(210, 1, 0.1)).toBe(243);
+  });
+
+  it("keeps the runner inside the playable lane", () => {
+    expect(movePlayerX(PLAYER_MIN_X, -1, 1)).toBe(PLAYER_MIN_X);
+    expect(movePlayerX(PLAYER_MAX_X, 1, 1)).toBe(PLAYER_MAX_X);
   });
 });

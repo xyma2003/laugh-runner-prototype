@@ -5,6 +5,7 @@ import {
   addLaughCharge,
   canReleaseLaugh,
   distanceScore,
+  movePlayerX,
   runnerSpeed,
 } from "./gameRules";
 
@@ -33,12 +34,18 @@ interface Pickup {
 interface FrogVisual {
   container: Phaser.GameObjects.Container;
   body: Phaser.GameObjects.Ellipse;
+  head: Phaser.GameObjects.Ellipse;
   belly: Phaser.GameObjects.Ellipse;
-  leftArm: Phaser.GameObjects.Rectangle;
-  rightArm: Phaser.GameObjects.Rectangle;
-  leftLeg: Phaser.GameObjects.Rectangle;
-  rightLeg: Phaser.GameObjects.Rectangle;
+  leftArm: Phaser.GameObjects.Container;
+  rightArm: Phaser.GameObjects.Container;
+  leftLeg: Phaser.GameObjects.Container;
+  rightLeg: Phaser.GameObjects.Container;
+  eyes: Phaser.GameObjects.Ellipse[];
   pupils: Phaser.GameObjects.Ellipse[];
+  normalMouth: Phaser.GameObjects.Rectangle;
+  laughMouth: Phaser.GameObjects.Ellipse;
+  laughTeeth: Phaser.GameObjects.Rectangle;
+  laughTongue: Phaser.GameObjects.Ellipse;
 }
 
 class TinyAudio {
@@ -111,8 +118,10 @@ class RunnerScene extends Phaser.Scene {
   private distanceMeters = 0;
   private bonusScore = 0;
   private verticalVelocity = 0;
+  private playerX = PLAYER_X;
   private jumpsUsed = 0;
   private rollingUntil = 0;
+  private laughingUntil = 0;
   private rageUntil = 0;
   private laughCharge = 0;
   private nextObstacleAt = 0;
@@ -126,6 +135,10 @@ class RunnerScene extends Phaser.Scene {
   private chargeSlots: Phaser.GameObjects.Arc[] = [];
   private chargeLabel!: Phaser.GameObjects.Text;
   private hintVersion = 0;
+  private leftKey?: Phaser.Input.Keyboard.Key;
+  private rightKey?: Phaser.Input.Keyboard.Key;
+  private touchLeftDown = false;
+  private touchRightDown = false;
   private audio = new TinyAudio();
 
   constructor() {
@@ -147,8 +160,10 @@ class RunnerScene extends Phaser.Scene {
     this.distanceMeters = 0;
     this.bonusScore = 0;
     this.verticalVelocity = 0;
+    this.playerX = PLAYER_X;
     this.jumpsUsed = 0;
     this.rollingUntil = 0;
+    this.laughingUntil = 0;
     this.rageUntil = 0;
     this.laughCharge = 0;
     this.obstaclesSpawned = 0;
@@ -208,7 +223,7 @@ class RunnerScene extends Phaser.Scene {
     this.nextObstacleAt = now + 4600;
     this.nextPickupAt = now + 600;
     this.nextRageAt = now + 9000;
-    this.showHint("空格跳跃 · S翻滚 · X大笑", 3200);
+    this.showHint("A/D移动 · 空格跳跃 · S翻滚 · E大笑", 3200);
   }
 
   private createBackground(): void {
@@ -282,71 +297,82 @@ class RunnerScene extends Phaser.Scene {
   private createFrog(): FrogVisual {
     const container = this.add.container(PLAYER_X, FLOOR_Y).setDepth(5);
 
-    const leftLeg = this.add
-      .rectangle(-28, -13, 18, 52, 0xe6b730)
-      .setStrokeStyle(5, 0x18262d)
-      .setOrigin(0.5, 0.18);
-    const rightLeg = this.add
-      .rectangle(28, -13, 18, 52, 0xe6b730)
-      .setStrokeStyle(5, 0x18262d)
-      .setOrigin(0.5, 0.18);
-    const leftArm = this.add
-      .rectangle(-48, -70, 16, 58, 0xf2c63a)
-      .setStrokeStyle(5, 0x18262d)
-      .setOrigin(0.5, 0.15);
-    const rightArm = this.add
-      .rectangle(48, -70, 16, 58, 0xf2c63a)
-      .setStrokeStyle(5, 0x18262d)
-      .setOrigin(0.5, 0.15);
-    const body = this.add
-      .ellipse(0, -58, 96, 114, 0xf7ce3e)
-      .setStrokeStyle(6, 0x18262d);
-    const belly = this.add.ellipse(2, -43, 64, 66, 0xffe26b).setStrokeStyle(3, 0xd49c2f, 0.7);
-    const leftEye = this.add
-      .ellipse(-24, -119, 37, 42, 0xc6f28f)
-      .setStrokeStyle(6, 0x18262d);
-    const rightEye = this.add
-      .ellipse(23, -119, 37, 42, 0xc6f28f)
-      .setStrokeStyle(6, 0x18262d);
-    const leftPupil = this.add.ellipse(-19, -116, 10, 14, 0x18262d);
-    const rightPupil = this.add.ellipse(28, -116, 10, 14, 0x18262d);
+    const createLeg = (x: number, footDirection: number): Phaser.GameObjects.Container => {
+      const leg = this.add.container(x, -63);
+      const shin = this.add.ellipse(0, 29, 27, 68, 0xe0ad2e).setStrokeStyle(5, 0x31382b);
+      const foot = this.add
+        .ellipse(footDirection * 6, 61, 45, 19, 0x4b4730)
+        .setStrokeStyle(4, 0x31382b);
+      const toeA = this.add.circle(footDirection * 15, 60, 3, 0x29291f);
+      const toeB = this.add.circle(footDirection * 6, 62, 3, 0x29291f);
+      leg.add([shin, foot, toeA, toeB]);
+      return leg;
+    };
 
-    const mouth = this.add.graphics();
-    mouth.lineStyle(5, 0x18262d, 1);
-    mouth.beginPath();
-    mouth.arc(0, -74, 24, 0.12, Math.PI - 0.12, false);
-    mouth.strokePath();
+    const createArm = (x: number): Phaser.GameObjects.Container => {
+      const arm = this.add.container(x, -126);
+      const upper = this.add.ellipse(0, 35, 27, 78, 0xefbd38).setStrokeStyle(5, 0x31382b);
+      const hand = this.add.ellipse(0, 72, 27, 25, 0x4b4730).setStrokeStyle(4, 0x31382b);
+      const fingerA = this.add.rectangle(-5, 75, 3, 12, 0x29291f).setAngle(-10);
+      const fingerB = this.add.rectangle(2, 76, 3, 12, 0x29291f).setAngle(4);
+      arm.add([upper, hand, fingerA, fingerB]);
+      return arm;
+    };
 
-    const cheekLeft = this.add.circle(-31, -78, 7, 0xff8a6f, 0.75);
-    const cheekRight = this.add.circle(31, -78, 7, 0xff8a6f, 0.75);
-    const highlight = this.add.ellipse(-19, -69, 14, 24, 0xffffff, 0.28).setAngle(18);
+    const leftLeg = createLeg(-31, -1);
+    const rightLeg = createLeg(31, 1);
+    const body = this.add.ellipse(0, -79, 126, 158, 0xefbd38).setStrokeStyle(6, 0x31382b);
+    const head = this.add.ellipse(0, -148, 82, 82, 0xf3c447).setStrokeStyle(6, 0x31382b);
+    const belly = this.add.ellipse(0, -72, 91, 108, 0xf4d590).setStrokeStyle(3, 0xc7953a, 0.72);
+    const leftArm = createArm(-50);
+    const rightArm = createArm(50);
+
+    const leftEye = this.add.ellipse(-20, -177, 28, 29, 0xa7c96b).setStrokeStyle(5, 0x31382b);
+    const rightEye = this.add.ellipse(20, -177, 28, 29, 0xa7c96b).setStrokeStyle(5, 0x31382b);
+    const leftPupil = this.add.ellipse(-18, -176, 8, 10, 0x171914);
+    const rightPupil = this.add.ellipse(22, -176, 8, 10, 0x171914);
+    const normalMouth = this.add.rectangle(0, -148, 25, 4, 0x31382b).setAngle(2);
+
+    const laughMouth = this.add
+      .ellipse(0, -143, 50, 42, 0x171914)
+      .setStrokeStyle(5, 0x31382b)
+      .setVisible(false);
+    const laughTeeth = this.add.rectangle(0, -154, 31, 8, 0xfff7dc).setVisible(false);
+    const laughTongue = this.add.ellipse(0, -130, 25, 10, 0xcc5547).setVisible(false);
 
     container.add([
       leftLeg,
       rightLeg,
+      body,
+      head,
+      belly,
       leftArm,
       rightArm,
-      body,
-      belly,
       leftEye,
       rightEye,
       leftPupil,
       rightPupil,
-      mouth,
-      cheekLeft,
-      cheekRight,
-      highlight,
+      normalMouth,
+      laughMouth,
+      laughTeeth,
+      laughTongue,
     ]);
 
     return {
       container,
       body,
+      head,
       belly,
       leftArm,
       rightArm,
       leftLeg,
       rightLeg,
+      eyes: [leftEye, rightEye],
       pupils: [leftPupil, rightPupil],
+      normalMouth,
+      laughMouth,
+      laughTeeth,
+      laughTongue,
     };
   }
 
@@ -424,19 +450,40 @@ class RunnerScene extends Phaser.Scene {
   }
 
   private bindControls(): void {
+    this.leftKey = this.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.A);
+    this.rightKey = this.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.D);
+    this.input.keyboard?.on("keydown-A", (event: KeyboardEvent) => {
+      if (!event.repeat) this.playerX = movePlayerX(this.playerX, -1, 0.035);
+    });
+    this.input.keyboard?.on("keydown-D", (event: KeyboardEvent) => {
+      if (!event.repeat) this.playerX = movePlayerX(this.playerX, 1, 0.035);
+    });
     this.input.keyboard?.on("keydown-SPACE", () => this.jump());
     this.input.keyboard?.on("keydown-UP", () => this.jump());
     this.input.keyboard?.on("keydown-S", () => this.roll());
     this.input.keyboard?.on("keydown-DOWN", () => this.roll());
-    this.input.keyboard?.on("keydown-X", () => this.releaseLaugh());
-    this.input.keyboard?.on("keydown-K", () => this.releaseLaugh());
+    this.input.keyboard?.on("keydown-E", () => this.releaseLaugh());
     this.input.on("pointerdown", () => {
       if (this.running && !this.over) this.jump();
     });
 
+    const leftButton = document.querySelector<HTMLButtonElement>("#leftButton");
+    const rightButton = document.querySelector<HTMLButtonElement>("#rightButton");
     const jumpButton = document.querySelector<HTMLButtonElement>("#jumpButton");
     const rollButton = document.querySelector<HTMLButtonElement>("#rollButton");
     const laughButton = document.querySelector<HTMLButtonElement>("#laughButton");
+    if (leftButton) {
+      leftButton.onpointerdown = (event) => { event.stopPropagation(); this.touchLeftDown = true; };
+      leftButton.onpointerup = () => { this.touchLeftDown = false; };
+      leftButton.onpointerleave = () => { this.touchLeftDown = false; };
+      leftButton.onpointercancel = () => { this.touchLeftDown = false; };
+    }
+    if (rightButton) {
+      rightButton.onpointerdown = (event) => { event.stopPropagation(); this.touchRightDown = true; };
+      rightButton.onpointerup = () => { this.touchRightDown = false; };
+      rightButton.onpointerleave = () => { this.touchRightDown = false; };
+      rightButton.onpointercancel = () => { this.touchRightDown = false; };
+    }
     if (jumpButton) jumpButton.onclick = (event) => { event.stopPropagation(); this.jump(); };
     if (rollButton) rollButton.onclick = (event) => { event.stopPropagation(); this.roll(); };
     if (laughButton) laughButton.onclick = (event) => { event.stopPropagation(); this.releaseLaugh(); };
@@ -475,14 +522,9 @@ class RunnerScene extends Phaser.Scene {
     this.laughCharge = 0;
     this.audio.laugh();
     this.cameras.main.shake(330, 0.013);
-    this.frog.container.setScale(1.13, 0.92);
-    this.tweens.add({
-      targets: this.frog.container,
-      scaleX: 1,
-      scaleY: 1,
-      duration: 440,
-      ease: "Bounce.Out",
-    });
+    this.laughingUntil = this.time.now + 620;
+    this.setLaughPose(true);
+    this.time.delayedCall(620, () => this.setLaughPose(false));
 
     const pulse = this.add
       .circle(this.frog.container.x + 22, this.frog.container.y - 64, 34, 0xffe55e, 0.12)
@@ -510,6 +552,12 @@ class RunnerScene extends Phaser.Scene {
   }
 
   private updatePlayer(dt: number, time: number): void {
+    const horizontalDirection =
+      ((this.rightKey?.isDown || this.touchRightDown) ? 1 : 0) -
+      ((this.leftKey?.isDown || this.touchLeftDown) ? 1 : 0);
+    this.playerX = movePlayerX(this.playerX, horizontalDirection, dt);
+    this.frog.container.x = this.playerX + Math.sin(time * 0.008) * 2.5;
+
     const onGround = this.frog.container.y >= FLOOR_Y - 0.5;
     if (!onGround || this.verticalVelocity < 0) {
       this.verticalVelocity += 2150 * dt;
@@ -523,17 +571,25 @@ class RunnerScene extends Phaser.Scene {
     }
 
     const rolling = time < this.rollingUntil;
+    const laughing = time < this.laughingUntil;
     const raging = time < this.rageUntil;
-    const targetScaleY = rolling ? 0.58 : 1;
-    const targetAngle = rolling ? 360 * ((time % 560) / 560) : 0;
+    const targetScaleX = laughing ? 1.08 : 1;
+    const targetScaleY = rolling ? 0.58 : laughing ? 0.94 : 1;
+    const targetAngle = rolling
+      ? 360 * ((time % 560) / 560)
+      : laughing
+        ? Math.sin(time * 0.075) * 5
+        : 0;
+    this.frog.container.scaleX = Phaser.Math.Linear(this.frog.container.scaleX, targetScaleX, 0.25);
     this.frog.container.scaleY = Phaser.Math.Linear(this.frog.container.scaleY, targetScaleY, 0.25);
     this.frog.container.angle = Phaser.Math.Angle.RotateTo(
       Phaser.Math.DegToRad(this.frog.container.angle),
       Phaser.Math.DegToRad(targetAngle),
       0.28,
     ) * (180 / Math.PI);
-    this.frog.body.setFillStyle(raging ? 0xff7b42 : 0xf7ce3e);
-    this.frog.belly.setFillStyle(raging ? 0xffb146 : 0xffe26b);
+    this.frog.body.setFillStyle(raging ? 0xff7b42 : 0xefbd38);
+    this.frog.head.setFillStyle(raging ? 0xff8a4d : 0xf3c447);
+    this.frog.belly.setFillStyle(raging ? 0xffb146 : 0xf4d590);
   }
 
   private animateFrog(phase: number, time: number): void {
@@ -541,19 +597,35 @@ class RunnerScene extends Phaser.Scene {
     const swing = Math.sin(phase * activePace);
     const reverseSwing = Math.sin(phase * activePace + Math.PI);
     const rolling = time < this.rollingUntil;
+    const laughing = time < this.laughingUntil;
 
-    if (!rolling) {
+    if (laughing) {
+      this.frog.leftArm.rotation = -0.64 + Math.sin(phase * 2.8) * 0.05;
+      this.frog.rightArm.rotation = 0.64 - Math.sin(phase * 2.8) * 0.05;
+      this.frog.leftLeg.rotation = -0.1;
+      this.frog.rightLeg.rotation = 0.1;
+      this.frog.belly.scaleX = 1 + Math.abs(Math.sin(phase * 2.6)) * 0.075;
+      this.frog.belly.scaleY = 1 - Math.abs(Math.sin(phase * 2.6)) * 0.04;
+    } else if (!rolling) {
       this.frog.leftArm.rotation = swing * 0.72;
       this.frog.rightArm.rotation = reverseSwing * 0.72;
       this.frog.leftLeg.rotation = reverseSwing * 0.62;
       this.frog.rightLeg.rotation = swing * 0.62;
       this.frog.belly.scaleX = 1 + Math.abs(swing) * 0.035;
       this.frog.belly.scaleY = 1 - Math.abs(swing) * 0.028;
-      this.frog.container.x = PLAYER_X + Math.sin(phase * 0.5) * 2.5;
     }
 
-    this.frog.pupils[0].x = -19 + Math.sin(phase * 0.31) * 2;
-    this.frog.pupils[1].x = 28 + Math.sin(phase * 0.31) * 2;
+    this.frog.pupils[0].x = -18 + Math.sin(phase * 0.31) * 2;
+    this.frog.pupils[1].x = 22 + Math.sin(phase * 0.31) * 2;
+  }
+
+  private setLaughPose(active: boolean): void {
+    this.frog.normalMouth.setVisible(!active);
+    this.frog.laughMouth.setVisible(active);
+    this.frog.laughTeeth.setVisible(active);
+    this.frog.laughTongue.setVisible(active);
+    this.frog.pupils.forEach((pupil) => pupil.setVisible(!active));
+    this.frog.eyes.forEach((eye) => eye.setScale(1, active ? 0.46 : 1));
   }
 
   private moveScenery(dt: number, speed: number): void {
@@ -739,8 +811,8 @@ class RunnerScene extends Phaser.Scene {
 
   private playerBounds(time: number): Phaser.Geom.Rectangle {
     const rolling = time < this.rollingUntil;
-    const width = rolling ? 84 : 70;
-    const height = rolling ? 55 : 108;
+    const width = rolling ? 92 : 82;
+    const height = rolling ? 72 : 164;
     return new Phaser.Geom.Rectangle(
       this.frog.container.x - width / 2,
       this.frog.container.y - height,
@@ -757,7 +829,7 @@ class RunnerScene extends Phaser.Scene {
       this.bonusScore += 75;
       this.audio.collect(this.laughCharge);
       this.showHint(
-        canReleaseLaugh(this.laughCharge) ? "大笑已合成！按 X 释放" : `大笑合成 ${this.laughCharge}/3`,
+        canReleaseLaugh(this.laughCharge) ? "大笑已合成！按 E 释放" : `大笑合成 ${this.laughCharge}/3`,
         canReleaseLaugh(this.laughCharge) ? 1500 : 800,
       );
       this.burst(x, y, 0xffdf56, 9, 1);
@@ -830,7 +902,7 @@ class RunnerScene extends Phaser.Scene {
       else slot.setScale(1);
     });
     if (canReleaseLaugh(this.laughCharge)) {
-      this.chargeLabel.setText("按 X");
+      this.chargeLabel.setText("按 E");
       this.chargeLabel.setColor("#d34024");
     } else {
       this.chargeLabel.setText(`差${MAX_LAUGH_CHARGE - this.laughCharge}只`);

@@ -31,28 +31,35 @@
             <p class="overlay-kicker">三只笑脸，合成一次大笑</p>
             <h2>跑起来，别憋笑</h2>
             <p>
-              自动向前奔跑。跳过裂缝，翻滚躲开飞行障碍，收集三个笑脸后释放冲击波。
+              道路自动向后移动。左右调整站位，跳过裂缝，收集三个大笑形态后释放冲击波。
             </p>
             <div class="key-guide" aria-label="操作说明">
+              <span><kbd>A / D</kbd> 左右移动</span>
               <span><kbd>空格</kbd> 跳跃 / 二段跳</span>
               <span><kbd>S</kbd> 翻滚</span>
-              <span><kbd>X</kbd> 大笑</span>
+              <span><kbd>E</kbd> 释放大笑</span>
             </div>
             <button id="startButton" class="primary-button" type="button">开始奔跑</button>
           </div>
         </div>
 
         <div class="touch-controls" aria-label="触屏操作">
-          <button id="rollButton" type="button">翻滚</button>
-          <button id="laughButton" class="laugh-button" type="button">大笑</button>
-          <button id="jumpButton" class="jump-button" type="button">跳跃</button>
+          <div class="touch-cluster move-cluster">
+            <button id="leftButton" type="button" aria-label="向左移动">←</button>
+            <button id="rightButton" type="button" aria-label="向右移动">→</button>
+          </div>
+          <div class="touch-cluster action-cluster">
+            <button id="rollButton" type="button">翻滚</button>
+            <button id="laughButton" class="laugh-button" type="button">大笑</button>
+            <button id="jumpButton" class="jump-button" type="button">跳跃</button>
+          </div>
         </div>
 
         <div class="rotate-note">请横屏体验，奶蛙才能放开跑。</div>
       </section>
 
       <footer>
-        当前版本只验证跑、跳、翻滚与大笑冲击波；不使用网络图片或现成音频素材。
+        当前版本验证左右移动、跑、跳、翻滚与捧腹大笑冲击波；角色为程序绘制的原型形象。
       </footer>
     </main>
     <script type="module" src="/src/main.ts"></script>

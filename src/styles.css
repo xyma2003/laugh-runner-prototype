@@ -143,43 +143,43 @@ h1 {
 
 .hero-face {
   position: relative;
-  width: 86px;
-  height: 70px;
-  margin: -58px auto 10px;
+  width: 76px;
+  height: 88px;
+  margin: -67px auto 10px;
   border: 4px solid var(--ink);
-  border-radius: 48% 52% 46% 54%;
-  background: var(--yellow);
-  transform: rotate(-4deg);
+  border-radius: 42% 42% 54% 54% / 34% 34% 62% 62%;
+  background: #efbd38;
+  transform: rotate(-2deg);
 }
 
 .hero-face::after {
   content: "";
   position: absolute;
-  left: 24px;
-  bottom: 12px;
-  width: 34px;
-  height: 13px;
-  border-bottom: 5px solid var(--ink);
-  border-radius: 50%;
+  left: 28px;
+  top: 26px;
+  width: 20px;
+  height: 3px;
+  border-radius: 3px;
+  background: var(--ink);
 }
 
 .hero-face span {
   position: absolute;
-  top: -15px;
-  width: 27px;
-  height: 31px;
+  top: -11px;
+  width: 25px;
+  height: 26px;
   border: 4px solid var(--ink);
   border-radius: 50%;
-  background: #c6f089;
+  background: #a7c96b;
 }
 
 .hero-face span::after {
   content: "";
   position: absolute;
   left: 8px;
-  top: 8px;
-  width: 7px;
-  height: 9px;
+  top: 7px;
+  width: 6px;
+  height: 7px;
   border-radius: 50%;
   background: var(--ink);
 }
@@ -246,6 +246,12 @@ kbd {
   pointer-events: none;
 }
 
+.touch-cluster {
+  display: flex;
+  align-items: end;
+  gap: 8px;
+}
+
 .touch-controls button {
   min-width: 70px;
   padding: 10px 14px;
@@ -255,8 +261,6 @@ kbd {
 }
 
 .touch-controls .laugh-button {
-  margin-left: auto;
-  margin-right: 10px;
   background: var(--orange);
 }
 
