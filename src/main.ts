@@ -6,6 +6,7 @@ import {
   addLaughCharge,
   canReleaseLaugh,
   distanceScore,
+  droneHoverY,
   isLaughProtected,
   movePlayerX,
   postponeObstacleSpawn,
@@ -136,7 +137,7 @@ class RunnerScene extends Phaser.Scene {
   private scoreText!: Phaser.GameObjects.Text;
   private distanceText!: Phaser.GameObjects.Text;
   private hintText!: Phaser.GameObjects.Text;
-  private chargeSlots: Phaser.GameObjects.Arc[] = [];
+  private chargeSlots: Phaser.GameObjects.Image[] = [];
   private chargeLabel!: Phaser.GameObjects.Text;
   private hintVersion = 0;
   private leftKey?: Phaser.Input.Keyboard.Key;
@@ -157,11 +158,16 @@ class RunnerScene extends Phaser.Scene {
     this.autoStart = Boolean(data.autoStart);
   }
 
+  preload(): void {
+    this.load.image("naiwa-laugh-icon", "/assets/naiwa-belly-laugh.gif");
+  }
+
   create(): void {
     this.obstacles = [];
     this.pickups = [];
     this.laneMarks = [];
     this.clouds = [];
+    this.chargeSlots = [];
     this.running = false;
     this.over = false;
     this.elapsedSeconds = 0;
@@ -434,19 +440,18 @@ class RunnerScene extends Phaser.Scene {
       .setDepth(20);
 
     for (let index = 0; index < MAX_LAUGH_CHARGE; index += 1) {
-      const slot = this.add
-        .circle(GAME_WIDTH - 204 + index * 52, 61, 18, 0xe4ddbf)
+      const slotX = GAME_WIDTH - 204 + index * 52;
+      this.add
+        .circle(slotX, 62, 22, 0xffed9c, 0.72)
         .setStrokeStyle(4, 0x18262d)
         .setDepth(20);
-      this.chargeSlots.push(slot);
-      this.add
-        .text(slot.x, slot.y - 1, "笑", {
-          fontFamily: "ZCOOL KuaiLe, sans-serif",
-          fontSize: "16px",
-          color: "#18262d",
-        })
-        .setOrigin(0.5)
+      const slot = this.add
+        .image(slotX, 63, "naiwa-laugh-icon")
+        .setDisplaySize(39, 42)
+        .setTint(0x87938a)
+        .setAlpha(0.32)
         .setDepth(21);
+      this.chargeSlots.push(slot);
     }
     this.chargeLabel = this.add
       .text(GAME_WIDTH - 62, 52, "差3只", {
@@ -538,7 +543,7 @@ class RunnerScene extends Phaser.Scene {
     this.audio.unlock();
     if (!canReleaseLaugh(this.laughCharge)) {
       const missing = MAX_LAUGH_CHARGE - this.laughCharge;
-      this.showHint(`还差 ${missing} 只大笑形态`, 700);
+      this.showHint(`还差 ${missing} 只大笑奶蛙`, 700);
       return;
     }
 
@@ -795,16 +800,17 @@ class RunnerScene extends Phaser.Scene {
     const node = this.add.container(GAME_WIDTH + 90, y).setDepth(6);
     const fill = kind === "laugh" ? 0xffda48 : 0xff7448;
     const aura = this.add.circle(0, 0, kind === "laugh" ? 33 : 38, fill, 0.2);
-    const face = this.add.circle(0, 0, kind === "laugh" ? 24 : 29, fill).setStrokeStyle(5, 0x18262d);
-    const leftEye = this.add.circle(-9, -6, 3.5, 0x18262d);
-    const rightEye = this.add.circle(9, -6, 3.5, 0x18262d);
-    const mouth = this.add.graphics();
-    mouth.lineStyle(4, 0x18262d, 1);
     if (kind === "laugh") {
-      mouth.beginPath();
-      mouth.arc(0, 2, 11, 0.1, Math.PI - 0.1, false);
-      mouth.strokePath();
+      const laughIcon = this.add
+        .image(0, 0, "naiwa-laugh-icon")
+        .setDisplaySize(58, 63);
+      node.add([aura, laughIcon]);
     } else {
+      const face = this.add.circle(0, 0, 29, fill).setStrokeStyle(5, 0x18262d);
+      const leftEye = this.add.circle(-9, -6, 3.5, 0x18262d);
+      const rightEye = this.add.circle(9, -6, 3.5, 0x18262d);
+      const mouth = this.add.graphics();
+      mouth.lineStyle(4, 0x18262d, 1);
       mouth.beginPath();
       mouth.moveTo(-12, -12);
       mouth.lineTo(-3, -8);
@@ -813,8 +819,8 @@ class RunnerScene extends Phaser.Scene {
       mouth.strokePath();
       mouth.fillStyle(0x18262d, 1);
       mouth.fillRect(-10, 6, 20, 5);
+      node.add([aura, face, leftEye, rightEye, mouth]);
     }
-    node.add([aura, face, leftEye, rightEye, mouth]);
     this.tweens.add({
       targets: aura,
       scale: 1.28,
@@ -831,7 +837,7 @@ class RunnerScene extends Phaser.Scene {
     for (const obstacle of [...this.obstacles]) {
       obstacle.node.x -= speed * dt;
       if (obstacle.kind === "drone") {
-        obstacle.node.y = Math.sin(time * 0.006 + obstacle.node.x * 0.01) * 12;
+        obstacle.node.y = droneHoverY(FLOOR_Y, time, obstacle.node.x);
       }
       if (obstacle.node.x < -140) this.removeObstacle(obstacle);
     }
@@ -861,9 +867,10 @@ class RunnerScene extends Phaser.Scene {
     }
 
     for (const obstacle of [...this.obstacles]) {
+      if (!obstacle.node.active || !obstacle.node.visible) continue;
       const obstacleBounds = new Phaser.Geom.Rectangle(
         obstacle.node.x - obstacle.width / 2,
-        FLOOR_Y + obstacle.centerOffsetY - obstacle.height / 2,
+        obstacle.node.y + obstacle.centerOffsetY - obstacle.height / 2,
         obstacle.width,
         obstacle.height,
       );
@@ -879,7 +886,7 @@ class RunnerScene extends Phaser.Scene {
         this.bonusScore += 120;
         this.audio.tone(120, 0.08, "square", 0.035);
       } else {
-        this.gameOver();
+        this.gameOver(obstacle.kind);
         return;
       }
     }
@@ -973,9 +980,11 @@ class RunnerScene extends Phaser.Scene {
     this.scoreText.setText(score.toString().padStart(6, "0"));
     this.distanceText.setText(`${Math.floor(this.distanceMeters)} m`);
     this.chargeSlots.forEach((slot, index) => {
-      slot.setFillStyle(index < this.laughCharge ? 0xffd744 : 0xe4ddbf);
-      if (index < this.laughCharge) slot.setScale(1.08);
-      else slot.setScale(1);
+      const charged = index < this.laughCharge;
+      slot.setDisplaySize(charged ? 44 : 39, charged ? 48 : 42);
+      slot.setAlpha(charged ? 1 : 0.32);
+      if (charged) slot.clearTint();
+      else slot.setTint(0x87938a);
     });
     if (canReleaseLaugh(this.laughCharge)) {
       this.chargeLabel.setText("按 E");
@@ -999,7 +1008,7 @@ class RunnerScene extends Phaser.Scene {
     }
   }
 
-  private gameOver(): void {
+  private gameOver(obstacleKind: ObstacleKind): void {
     if (this.over) return;
     this.over = true;
     this.running = false;
@@ -1033,14 +1042,25 @@ class RunnerScene extends Phaser.Scene {
         })
         .setOrigin(0.5)
         .setDepth(52);
+      const obstacleNames: Record<ObstacleKind, string> = {
+        crate: "木箱",
+        spike: "路钉",
+        drone: "飞行器",
+        pit: "裂缝",
+      };
       const result = this.add
-        .text(GAME_WIDTH / 2, 332, `本次 ${score} 分  ·  最远 ${Math.floor(this.distanceMeters)} m\n最高分 ${best}`, {
+        .text(
+          GAME_WIDTH / 2,
+          332,
+          `撞上：${obstacleNames[obstacleKind]}\n本次 ${score} 分  ·  最远 ${Math.floor(this.distanceMeters)} m\n最高分 ${best}`,
+          {
           fontFamily: "Nunito, sans-serif",
-          fontSize: "24px",
+          fontSize: "21px",
           align: "center",
           color: "#3b625e",
-          lineSpacing: 10,
-        })
+          lineSpacing: 7,
+          },
+        )
         .setOrigin(0.5)
         .setDepth(52);
       const restart = this.add

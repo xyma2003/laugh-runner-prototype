@@ -35,3 +35,7 @@ export function isLaughProtected(now: number, protectedUntil: number): boolean {
 export function postponeObstacleSpawn(currentSpawnAt: number, now: number): number {
   return Math.max(currentSpawnAt, now + LAUGH_RESPAWN_DELAY_MS);
 }
+
+export function droneHoverY(floorY: number, time: number, obstacleX: number): number {
+  return floorY + Math.sin(time * 0.006 + obstacleX * 0.01) * 12;
+}

@@ -8,6 +8,7 @@ import {
   addLaughCharge,
   canReleaseLaugh,
   distanceScore,
+  droneHoverY,
   isLaughProtected,
   movePlayerX,
   postponeObstacleSpawn,
@@ -67,5 +68,13 @@ describe("laugh protection", () => {
     expect(LAUGH_RESPAWN_DELAY_MS).toBeGreaterThan(LAUGH_GUARD_MS);
     expect(postponeObstacleSpawn(5_500, 5_000)).toBe(5_000 + LAUGH_RESPAWN_DELAY_MS);
     expect(postponeObstacleSpawn(12_000, 5_000)).toBe(12_000);
+  });
+});
+
+describe("obstacle rendering and collision alignment", () => {
+  it("keeps the flying obstacle anchored around the road height", () => {
+    expect(droneHoverY(586, 0, 0)).toBe(586);
+    expect(droneHoverY(586, 250, 400)).toBeGreaterThanOrEqual(574);
+    expect(droneHoverY(586, 250, 400)).toBeLessThanOrEqual(598);
   });
 });
