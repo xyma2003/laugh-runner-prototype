@@ -287,7 +287,6 @@ class RunnerScene extends Phaser.Scene {
     this.nextObstacleAt = now + 10000;
     this.nextPickupAt = now + 600;
     this.nextRageAt = now + 9000;
-    this.showHint("A/D移动 · 空格跳跃 · S翻滚 · E大笑 · P暂停", 3200);
   }
 
   private createBackground(): void {
@@ -499,13 +498,13 @@ class RunnerScene extends Phaser.Scene {
       .setDepth(20);
 
     this.hintText = this.add
-      .text(GAME_WIDTH / 2, 124, "", {
+      .text(GAME_WIDTH / 2, 114, "", {
         fontFamily: "Nunito, sans-serif",
-        fontSize: "22px",
+        fontSize: "17px",
         fontStyle: "900",
         color: "#fff9df",
         backgroundColor: "#18262ddd",
-        padding: { x: 14, y: 7 },
+        padding: { x: 10, y: 4 },
       })
       .setOrigin(0.5)
       .setDepth(30)
@@ -619,7 +618,7 @@ class RunnerScene extends Phaser.Scene {
     this.audio.unlock();
     if (!canReleaseLaugh(this.laughCharge)) {
       const missing = MAX_LAUGH_CHARGE - this.laughCharge;
-      this.showHint(`还差 ${missing} 只大笑奶蛙`, 700);
+      this.showHint(`差 ${missing} 只`, 450);
       return;
     }
 
@@ -652,12 +651,7 @@ class RunnerScene extends Phaser.Scene {
     // A laugh is a complete obstacle-field reset. Do not leave stale collision entries behind.
     this.obstacles = [];
     this.bonusScore += destroyed * 180;
-    this.showHint(
-      destroyed > 0
-        ? `齁哈哈哈！清场 ${destroyed} 个障碍 · 道路刷新 · 3秒无敌`
-        : "齁哈哈哈！道路刷新 · 3秒无敌",
-      1250,
-    );
+    this.showHint(destroyed > 0 ? `清场 ×${destroyed}` : "清场！", 600);
     this.updateHud();
   }
 
@@ -766,12 +760,18 @@ class RunnerScene extends Phaser.Scene {
 
   private syncFrogSprite(time: number): void {
     if (!this.frogSprite) return;
-    this.frogSprite.style.left = `${(this.frog.container.x / GAME_WIDTH) * 100}%`;
-    this.frogSprite.style.top = `${(this.frog.container.y / GAME_HEIGHT) * 100}%`;
+    const frogXPercent = (this.frog.container.x / GAME_WIDTH) * 100;
+    const frogYPercent = (this.frog.container.y / GAME_HEIGHT) * 100;
+    this.frogSprite.style.left = `${frogXPercent}%`;
+    this.frogSprite.style.top = `${frogYPercent}%`;
     this.frogSprite.style.transform =
       `translate(-50%, -100%) rotate(${this.frog.container.angle}deg) ` +
       `scale(${this.frog.container.scaleX}, ${this.frog.container.scaleY})`;
     this.frogSprite.classList.toggle("is-protected", isLaughProtected(time, this.laughGuardUntil));
+    if (this.rageHud) {
+      this.rageHud.style.left = `${Phaser.Math.Clamp(frogXPercent, 8, 92)}%`;
+      this.rageHud.style.top = `${Phaser.Math.Clamp(frogYPercent - 35, 4, 61)}%`;
+    }
   }
 
   private syncGameState(time: number): void {
@@ -1106,17 +1106,17 @@ class RunnerScene extends Phaser.Scene {
       this.bonusScore += 75;
       this.audio.collect(this.laughCharge);
       this.showHint(
-        canReleaseLaugh(this.laughCharge) ? "大笑已合成！按 E 释放" : `大笑合成 ${this.laughCharge}/3`,
-        canReleaseLaugh(this.laughCharge) ? 1500 : 800,
+        canReleaseLaugh(this.laughCharge) ? "按 E" : `${this.laughCharge}/3`,
+        canReleaseLaugh(this.laughCharge) ? 650 : 420,
       );
       this.burst(x, y, 0xffdf56, 9, 1);
     } else {
       this.rageUntil = time + RAGE_DURATION_MS;
       this.bonusScore += 150;
       this.audio.tone(145, 0.28, "sawtooth", 0.06);
-      this.showHint("打拳暴走！时间条清空前可撞飞障碍", 1500);
-      this.burst(x, y, 0xff7448, 13, 1.2);
-      this.cameras.main.flash(120, 255, 140, 70, false);
+      this.showHint("暴走！", 450);
+      this.burst(x, y, 0xffc934, 16, 1.35);
+      this.cameras.main.flash(120, 255, 221, 82, false);
       if (time >= this.laughingUntil) this.setFrogSpriteState("punching");
     }
     this.removePickup(pickup);

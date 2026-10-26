@@ -113,10 +113,13 @@ h1 {
 }
 
 .frog-sprite.is-raging {
-  width: 14.2%;
+  width: 19.2%;
   filter:
-    drop-shadow(0 0 9px rgba(255, 218, 72, 0.98))
+    drop-shadow(0 0 7px rgba(255, 249, 176, 1))
+    drop-shadow(0 0 18px rgba(255, 207, 42, 0.98))
+    drop-shadow(0 0 32px rgba(255, 143, 31, 0.72))
     drop-shadow(0 5px 2px rgba(24, 38, 45, 0.22));
+  animation: rage-glow 240ms ease-in-out infinite alternate;
 }
 
 .frog-sprite.is-protected {
@@ -125,24 +128,46 @@ h1 {
     drop-shadow(0 5px 2px rgba(24, 38, 45, 0.22));
 }
 
+.frog-sprite.is-raging.is-protected {
+  filter:
+    drop-shadow(0 0 8px rgba(255, 255, 221, 1))
+    drop-shadow(0 0 20px rgba(255, 220, 58, 1))
+    drop-shadow(0 0 34px rgba(255, 143, 31, 0.8))
+    drop-shadow(0 5px 2px rgba(24, 38, 45, 0.22));
+}
+
+@keyframes rage-glow {
+  from {
+    opacity: 0.94;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
 .rage-hud {
   position: absolute;
   z-index: 4;
-  top: 14.2%;
-  right: 2.1%;
+  left: 16.4%;
+  top: 49%;
   display: grid;
-  grid-template-columns: 28px auto minmax(70px, 1fr) 34px;
+  grid-template-columns: 30px minmax(74px, 1fr) 34px;
   align-items: center;
-  gap: 6px;
-  width: 25.8%;
-  min-height: 32px;
-  padding: 3px 7px;
+  gap: 5px;
+  width: clamp(145px, 17%, 218px);
+  min-height: 30px;
+  padding: 2px 7px 2px 4px;
   border: 3px solid var(--ink);
+  border-radius: 999px;
   background: rgba(255, 249, 223, 0.95);
   color: #9d5125;
   font-size: clamp(9px, 1vw, 13px);
   font-weight: 900;
   pointer-events: none;
+  transform: translateX(-50%);
+  box-shadow: 0 4px 0 rgba(24, 38, 45, 0.2);
+  will-change: left, top;
 }
 
 .rage-hud.is-hidden {
@@ -150,8 +175,8 @@ h1 {
 }
 
 .rage-hud img {
-  width: 26px;
-  height: 28px;
+  width: 30px;
+  height: 31px;
   object-fit: contain;
 }
 
@@ -165,7 +190,7 @@ h1 {
 .rage-bar-fill {
   width: 100%;
   height: 100%;
-  background: #ffb83d;
+  background: linear-gradient(90deg, #ff8d2e, #ffdc3d 72%, #fff5a5);
   transform: scaleX(1);
   transform-origin: left center;
   will-change: transform;
