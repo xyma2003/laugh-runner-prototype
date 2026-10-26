@@ -26,6 +26,6 @@ npm run dev
 - 气鼓鼓暴走道具
 - 距离、分数、本地最高分与立即重开
 
-跑步与捧腹大笑角色动画来自公开网络素材，详情见 [ASSET_SOURCES.md](./ASSET_SOURCES.md)。其他图形与程序化音效为原型自制。
+跑步与捧腹大笑角色动画来自 [Codex_pet_naiwa](https://github.com/lyhkevin/Codex_pet_naiwa)，具体文件、来源提交与 SHA-256 见 [ASSET_SOURCES.md](./ASSET_SOURCES.md)。其他图形与程序化音效为原型自制。
 
 当前仓库未附带该角色素材的商业授权证明，仅用于私有技术原型；公开或商业发行前需要取得许可或替换为原创资产。
