@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   MAX_LAUGH_CHARGE,
   LAUGH_GUARD_MS,
+  LAUGH_RESPAWN_DELAY_MS,
   PLAYER_MAX_X,
   PLAYER_MIN_X,
   addLaughCharge,
@@ -9,6 +10,7 @@ import {
   distanceScore,
   isLaughProtected,
   movePlayerX,
+  postponeObstacleSpawn,
   runnerSpeed,
 } from "../src/gameRules";
 
@@ -47,6 +49,10 @@ describe("horizontal movement", () => {
     expect(movePlayerX(PLAYER_MIN_X, -1, 1)).toBe(PLAYER_MIN_X);
     expect(movePlayerX(PLAYER_MAX_X, 1, 1)).toBe(PLAYER_MAX_X);
   });
+
+  it("lets the runner reach at least eighty percent of the stage", () => {
+    expect(PLAYER_MAX_X / 1280).toBeGreaterThanOrEqual(0.8);
+  });
 });
 
 describe("laugh protection", () => {
@@ -55,5 +61,11 @@ describe("laugh protection", () => {
     const protectedUntil = releasedAt + LAUGH_GUARD_MS;
     expect(isLaughProtected(5_900, protectedUntil)).toBe(true);
     expect(isLaughProtected(protectedUntil, protectedUntil)).toBe(false);
+  });
+
+  it("resets obstacle spawning beyond the protection window", () => {
+    expect(LAUGH_RESPAWN_DELAY_MS).toBeGreaterThan(LAUGH_GUARD_MS);
+    expect(postponeObstacleSpawn(5_500, 5_000)).toBe(5_000 + LAUGH_RESPAWN_DELAY_MS);
+    expect(postponeObstacleSpawn(12_000, 5_000)).toBe(12_000);
   });
 });

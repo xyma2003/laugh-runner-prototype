@@ -8,6 +8,7 @@ import {
   distanceScore,
   isLaughProtected,
   movePlayerX,
+  postponeObstacleSpawn,
   runnerSpeed,
 } from "./gameRules";
 
@@ -546,7 +547,7 @@ class RunnerScene extends Phaser.Scene {
     this.cameras.main.shake(330, 0.013);
     this.laughingUntil = this.time.now + 1250;
     this.laughGuardUntil = this.time.now + LAUGH_GUARD_MS;
-    this.nextObstacleAt = Math.max(this.nextObstacleAt, this.time.now + LAUGH_GUARD_MS + 350);
+    this.nextObstacleAt = postponeObstacleSpawn(this.nextObstacleAt, this.time.now);
     this.setLaughPose(true);
     this.time.delayedCall(1250, () => this.setLaughPose(false));
 
@@ -563,16 +564,17 @@ class RunnerScene extends Phaser.Scene {
       onComplete: () => pulse.destroy(),
     });
 
-    let destroyed = 0;
+    const destroyed = this.obstacles.length;
     for (const obstacle of [...this.obstacles]) {
-      if (obstacle.node.x < GAME_WIDTH + 140) {
-        this.destroyObstacle(obstacle, true);
-        destroyed += 1;
-      }
+      this.destroyObstacle(obstacle, true);
     }
+    // A laugh is a complete obstacle-field reset. Do not leave stale collision entries behind.
+    this.obstacles = [];
     this.bonusScore += destroyed * 180;
     this.showHint(
-      destroyed > 0 ? `齁哈哈哈！清场 ${destroyed} 个障碍 · 短暂无敌` : "齁哈哈哈！短暂无敌",
+      destroyed > 0
+        ? `齁哈哈哈！清场 ${destroyed} 个障碍 · 道路刷新 · 3秒无敌`
+        : "齁哈哈哈！道路刷新 · 3秒无敌",
       1250,
     );
     this.updateHud();
@@ -690,6 +692,8 @@ class RunnerScene extends Phaser.Scene {
     this.gameFrame.dataset.running = String(this.running && !this.over);
     this.gameFrame.dataset.protected = String(isLaughProtected(time, this.laughGuardUntil));
     this.gameFrame.dataset.spriteState = this.frogSpriteState;
+    this.gameFrame.dataset.playerX = String(Math.round(this.playerX));
+    this.gameFrame.dataset.obstacleCount = String(this.obstacles.length);
   }
 
   private moveScenery(dt: number, speed: number): void {
@@ -733,7 +737,9 @@ class RunnerScene extends Phaser.Scene {
               ? "drone"
               : "pit";
     this.obstaclesSpawned += 1;
-    const node = this.add.container(GAME_WIDTH + 100, FLOOR_Y).setDepth(4);
+    // Keep enough reaction distance even when the player runs near the right edge.
+    const spawnX = Math.max(GAME_WIDTH + 100, this.playerX + 620);
+    const node = this.add.container(spawnX, FLOOR_Y).setDepth(4);
     let width = 70;
     let height = 70;
     let centerOffsetY = -35;
