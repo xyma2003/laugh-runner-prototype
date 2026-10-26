@@ -1156,7 +1156,7 @@ class RunnerScene extends Phaser.Scene {
     const rageRatio = effectRemainingRatio(time, this.rageUntil, RAGE_DURATION_MS);
     const hasRage = rageRatio > 0;
     this.rageHud?.classList.toggle("is-hidden", !hasRage);
-    const hasFollowerStatus = hasLaughCharge || hasRage;
+    const hasFollowerStatus = !this.over && (hasLaughCharge || hasRage);
     this.frogStatusStack?.classList.toggle("is-hidden", !hasFollowerStatus);
     this.frogStatusStack?.setAttribute("aria-hidden", String(!hasFollowerStatus));
     if (this.rageBarFill) this.rageBarFill.style.transform = `scaleX(${rageRatio})`;
@@ -1181,6 +1181,8 @@ class RunnerScene extends Phaser.Scene {
     if (this.over) return;
     this.over = true;
     this.running = false;
+    this.hintVersion += 1;
+    this.hintText.setVisible(false);
     this.frogStatusStack?.classList.add("is-hidden");
     this.frogStatusStack?.setAttribute("aria-hidden", "true");
     this.setPauseButtonVisible(false);
