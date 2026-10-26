@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#142d38" />
+    <meta
+      name="description"
+      content="横屏侧面跑酷原型：收集三个笑脸，合成大笑冲击波。"
+    />
+    <title>笑蛙冲刺 · 跑酷原型</title>
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">SIDE RUNNER PROTOTYPE</p>
+          <h1>笑蛙冲刺</h1>
+        </div>
+        <div class="topbar-note">原创机制原型 · 横屏体验</div>
+      </header>
+
+      <section class="game-frame" aria-label="笑蛙冲刺游戏区域">
+        <div id="game"></div>
+
+        <div id="startOverlay" class="overlay">
+          <div class="overlay-card">
+            <div class="hero-face" aria-hidden="true">
+              <span></span><span></span>
+            </div>
+            <p class="overlay-kicker">三只笑脸，合成一次大笑</p>
+            <h2>跑起来，别憋笑</h2>
+            <p>
+              自动向前奔跑。跳过裂缝，翻滚躲开飞行障碍，收集三个笑脸后释放冲击波。
+            </p>
+            <div class="key-guide" aria-label="操作说明">
+              <span><kbd>空格</kbd> 跳跃 / 二段跳</span>
+              <span><kbd>S</kbd> 翻滚</span>
+              <span><kbd>X</kbd> 大笑</span>
+            </div>
+            <button id="startButton" class="primary-button" type="button">开始奔跑</button>
+          </div>
+        </div>
+
+        <div class="touch-controls" aria-label="触屏操作">
+          <button id="rollButton" type="button">翻滚</button>
+          <button id="laughButton" class="laugh-button" type="button">大笑</button>
+          <button id="jumpButton" class="jump-button" type="button">跳跃</button>
+        </div>
+
+        <div class="rotate-note">请横屏体验，奶蛙才能放开跑。</div>
+      </section>
+
+      <footer>
+        当前版本只验证跑、跳、翻滚与大笑冲击波；不使用网络图片或现成音频素材。
+      </footer>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
