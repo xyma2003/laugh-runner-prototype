@@ -29,12 +29,20 @@
           alt=""
           aria-hidden="true"
         />
-        <div id="rageHud" class="rage-hud is-hidden" aria-hidden="true">
-          <img src="/assets/naiwa-punching.gif" alt="" aria-hidden="true" />
-          <div class="rage-track" aria-hidden="true">
-            <div id="rageBarFill" class="rage-bar-fill"></div>
+        <div id="frogStatusStack" class="frog-status-stack is-hidden" aria-hidden="true">
+          <div id="rageHud" class="rage-hud is-hidden">
+            <img src="/assets/naiwa-punching.gif" alt="" aria-hidden="true" />
+            <div class="rage-track" aria-hidden="true">
+              <div id="rageBarFill" class="rage-bar-fill"></div>
+            </div>
+            <span id="rageTimeText">3.1s</span>
           </div>
-          <span id="rageTimeText">3.1s</span>
+          <div id="laughHud" class="laugh-hud is-hidden">
+            <img class="laugh-charge-icon is-hidden" src="/assets/naiwa-belly-laugh.gif" alt="" />
+            <img class="laugh-charge-icon is-hidden" src="/assets/naiwa-belly-laugh.gif" alt="" />
+            <img class="laugh-charge-icon is-hidden" src="/assets/naiwa-belly-laugh.gif" alt="" />
+            <span id="laughReadyText" class="laugh-ready is-hidden">E 释放</span>
+          </div>
         </div>
 
         <div id="startOverlay" class="overlay" aria-hidden="false">

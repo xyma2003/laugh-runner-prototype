@@ -144,11 +144,13 @@ class RunnerScene extends Phaser.Scene {
   private scoreText!: Phaser.GameObjects.Text;
   private distanceText!: Phaser.GameObjects.Text;
   private hintText!: Phaser.GameObjects.Text;
-  private chargeSlots: Phaser.GameObjects.Image[] = [];
-  private chargeLabel!: Phaser.GameObjects.Text;
+  private frogStatusStack?: HTMLElement;
   private rageHud?: HTMLElement;
   private rageBarFill?: HTMLElement;
   private rageTimeText?: HTMLElement;
+  private laughHud?: HTMLElement;
+  private laughChargeIcons: HTMLImageElement[] = [];
+  private laughReadyText?: HTMLElement;
   private hintVersion = 0;
   private leftKey?: Phaser.Input.Keyboard.Key;
   private rightKey?: Phaser.Input.Keyboard.Key;
@@ -187,7 +189,7 @@ class RunnerScene extends Phaser.Scene {
     this.pickups = [];
     this.laneMarks = [];
     this.clouds = [];
-    this.chargeSlots = [];
+    this.laughChargeIcons = [];
     this.running = false;
     this.over = false;
     this.elapsedSeconds = 0;
@@ -214,11 +216,19 @@ class RunnerScene extends Phaser.Scene {
     this.frog.container.setVisible(false);
     this.frogSprite = document.querySelector<HTMLImageElement>("#frogSprite") ?? undefined;
     this.gameFrame = document.querySelector<HTMLElement>("#gameFrame") ?? undefined;
+    this.frogStatusStack = document.querySelector<HTMLElement>("#frogStatusStack") ?? undefined;
     this.rageHud = document.querySelector<HTMLElement>("#rageHud") ?? undefined;
     this.rageBarFill = document.querySelector<HTMLElement>("#rageBarFill") ?? undefined;
     this.rageTimeText = document.querySelector<HTMLElement>("#rageTimeText") ?? undefined;
+    this.laughHud = document.querySelector<HTMLElement>("#laughHud") ?? undefined;
+    this.laughChargeIcons = Array.from(
+      document.querySelectorAll<HTMLImageElement>(".laugh-charge-icon"),
+    );
+    this.laughReadyText = document.querySelector<HTMLElement>("#laughReadyText") ?? undefined;
+    this.frogStatusStack?.classList.add("is-hidden");
+    this.frogStatusStack?.setAttribute("aria-hidden", "true");
     this.rageHud?.classList.add("is-hidden");
-    this.rageHud?.setAttribute("aria-hidden", "true");
+    this.laughHud?.classList.add("is-hidden");
     this.setFrogSpriteState("running-right");
     this.syncFrogSprite(0);
     this.syncGameState(0);
@@ -458,43 +468,6 @@ class RunnerScene extends Phaser.Scene {
         stroke: "#fff9df",
         strokeThickness: 5,
       })
-      .setDepth(20);
-
-    this.add
-      .rectangle(GAME_WIDTH - 192, 56, 330, 82, 0xfff9df, 0.92)
-      .setStrokeStyle(4, 0x18262d)
-      .setDepth(19);
-    this.add
-      .text(GAME_WIDTH - 333, 26, "大笑合成", {
-        fontFamily: "Nunito, sans-serif",
-        fontSize: "17px",
-        fontStyle: "900",
-        color: "#315d5b",
-      })
-      .setDepth(20);
-
-    for (let index = 0; index < MAX_LAUGH_CHARGE; index += 1) {
-      const slotX = GAME_WIDTH - 204 + index * 52;
-      this.add
-        .circle(slotX, 62, 22, 0xffed9c, 0.72)
-        .setStrokeStyle(4, 0x18262d)
-        .setDepth(20);
-      const slot = this.add
-        .image(slotX, 63, "naiwa-laugh-icon")
-        .setDisplaySize(39, 42)
-        .setTint(0x87938a)
-        .setAlpha(0.32)
-        .setDepth(21);
-      this.chargeSlots.push(slot);
-    }
-    this.chargeLabel = this.add
-      .text(GAME_WIDTH - 62, 52, "差3只", {
-        fontFamily: "Nunito, sans-serif",
-        fontSize: "14px",
-        fontStyle: "900",
-        color: "#ba4f2d",
-      })
-      .setOrigin(0.5)
       .setDepth(20);
 
     this.hintText = this.add
@@ -768,9 +741,9 @@ class RunnerScene extends Phaser.Scene {
       `translate(-50%, -100%) rotate(${this.frog.container.angle}deg) ` +
       `scale(${this.frog.container.scaleX}, ${this.frog.container.scaleY})`;
     this.frogSprite.classList.toggle("is-protected", isLaughProtected(time, this.laughGuardUntil));
-    if (this.rageHud) {
-      this.rageHud.style.left = `${Phaser.Math.Clamp(frogXPercent, 8, 92)}%`;
-      this.rageHud.style.top = `${Phaser.Math.Clamp(frogYPercent - 35, 4, 61)}%`;
+    if (this.frogStatusStack) {
+      this.frogStatusStack.style.left = `${Phaser.Math.Clamp(frogXPercent, 8, 92)}%`;
+      this.frogStatusStack.style.top = `${Phaser.Math.Clamp(frogYPercent - 35, 7, 61)}%`;
     }
   }
 
@@ -1105,10 +1078,7 @@ class RunnerScene extends Phaser.Scene {
       this.laughCharge = addLaughCharge(this.laughCharge);
       this.bonusScore += 75;
       this.audio.collect(this.laughCharge);
-      this.showHint(
-        canReleaseLaugh(this.laughCharge) ? "按 E" : `${this.laughCharge}/3`,
-        canReleaseLaugh(this.laughCharge) ? 650 : 420,
-      );
+      if (canReleaseLaugh(this.laughCharge)) this.showHint("按 E 释放", 650);
       this.burst(x, y, 0xffdf56, 9, 1);
     } else {
       this.rageUntil = time + RAGE_DURATION_MS;
@@ -1174,24 +1144,21 @@ class RunnerScene extends Phaser.Scene {
     const score = distanceScore(this.distanceMeters, this.bonusScore);
     this.scoreText.setText(score.toString().padStart(6, "0"));
     this.distanceText.setText(`${Math.floor(this.distanceMeters)} m`);
-    this.chargeSlots.forEach((slot, index) => {
+    const hasLaughCharge = this.laughCharge > 0;
+    this.laughHud?.classList.toggle("is-hidden", !hasLaughCharge);
+    this.laughChargeIcons.forEach((icon, index) => {
       const charged = index < this.laughCharge;
-      slot.setDisplaySize(charged ? 44 : 39, charged ? 48 : 42);
-      slot.setAlpha(charged ? 1 : 0.32);
-      if (charged) slot.clearTint();
-      else slot.setTint(0x87938a);
+      icon.classList.toggle("is-hidden", !charged);
+      icon.alt = charged ? `已收集的大笑奶蛙 ${index + 1}` : "";
     });
-    if (canReleaseLaugh(this.laughCharge)) {
-      this.chargeLabel.setText("按 E");
-      this.chargeLabel.setColor("#d34024");
-    } else {
-      this.chargeLabel.setText(`差${MAX_LAUGH_CHARGE - this.laughCharge}只`);
-      this.chargeLabel.setColor("#ba4f2d");
-    }
+    this.laughReadyText?.classList.toggle("is-hidden", !canReleaseLaugh(this.laughCharge));
 
     const rageRatio = effectRemainingRatio(time, this.rageUntil, RAGE_DURATION_MS);
-    this.rageHud?.classList.toggle("is-hidden", rageRatio <= 0);
-    this.rageHud?.setAttribute("aria-hidden", String(rageRatio <= 0));
+    const hasRage = rageRatio > 0;
+    this.rageHud?.classList.toggle("is-hidden", !hasRage);
+    const hasFollowerStatus = hasLaughCharge || hasRage;
+    this.frogStatusStack?.classList.toggle("is-hidden", !hasFollowerStatus);
+    this.frogStatusStack?.setAttribute("aria-hidden", String(!hasFollowerStatus));
     if (this.rageBarFill) this.rageBarFill.style.transform = `scaleX(${rageRatio})`;
     const remainingSeconds = Math.max(0, Math.ceil((this.rageUntil - time) / 100) / 10);
     if (this.rageTimeText) this.rageTimeText.textContent = `${remainingSeconds.toFixed(1)}s`;
@@ -1214,6 +1181,8 @@ class RunnerScene extends Phaser.Scene {
     if (this.over) return;
     this.over = true;
     this.running = false;
+    this.frogStatusStack?.classList.add("is-hidden");
+    this.frogStatusStack?.setAttribute("aria-hidden", "true");
     this.setPauseButtonVisible(false);
     this.audio.crash();
     this.cameras.main.shake(250, 0.018);
