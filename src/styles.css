@@ -1,9 +1,7 @@
-@import url("https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=ZCOOL+KuaiLe&display=swap");
-
 :root {
   color: #18262d;
   background: #f4efd9;
-  font-family: "Nunito", "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-family: "Avenir Next", "PingFang SC", "Microsoft YaHei", sans-serif;
   font-synthesis: none;
   --ink: #18262d;
   --cream: #fff9df;
@@ -59,7 +57,7 @@ button {
 
 h1 {
   margin: 0;
-  font-family: "ZCOOL KuaiLe", "PingFang SC", sans-serif;
+  font-family: "Kaiti SC", "STKaiti", "PingFang SC", sans-serif;
   font-size: clamp(28px, 4vw, 48px);
   font-weight: 400;
   line-height: 1;
