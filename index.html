@@ -17,7 +17,10 @@
           <p class="eyebrow">SIDE RUNNER PROTOTYPE</p>
           <h1>笑蛙冲刺</h1>
         </div>
-        <div class="topbar-note">横屏体验</div>
+        <div class="topbar-actions">
+          <div class="topbar-note">横屏体验</div>
+          <button id="compactButton" class="utility-button" type="button">▣ 小窗模式</button>
+        </div>
       </header>
 
       <section id="gameFrame" class="game-frame" aria-label="笑蛙冲刺游戏区域">
@@ -59,6 +62,7 @@
               <span><kbd>S</kbd> 翻滚</span>
               <span><kbd>E</kbd> 释放大笑</span>
               <span><kbd>P / Esc</kbd> 暂停</span>
+              <span><kbd>H</kbd> 一键清屏</span>
             </div>
             <div class="overlay-actions">
               <button id="startButton" class="primary-button" type="button">开始奔跑</button>
@@ -92,6 +96,9 @@
 
         <button id="pauseButton" class="game-pause-button is-hidden" type="button" aria-label="暂停游戏">
           Ⅱ 暂停
+        </button>
+        <button id="clearScreenButton" class="game-clear-button is-hidden" type="button" aria-label="一键清屏并暂停游戏">
+          H 清屏
         </button>
 
         <div
@@ -129,6 +136,12 @@
       </section>
 
     </main>
+
+    <div id="clearScreenOverlay" class="clear-screen-overlay is-hidden" aria-hidden="true">
+      <button id="clearScreenRestore" class="clear-screen-restore" type="button" aria-label="恢复游戏画面">
+        <time id="clearScreenClock">--:--</time>
+      </button>
+    </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

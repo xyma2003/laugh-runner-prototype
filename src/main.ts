@@ -23,6 +23,16 @@ const GAME_HEIGHT = 720;
 const FLOOR_Y = 586;
 const PLAYER_X = 210;
 const LEADERBOARD_STORAGE_KEY = "laugh-runner-leaderboard-v1";
+const IS_COMPACT_MODE = new URLSearchParams(window.location.search).get("compact") === "1";
+const clearClockFormatter = new Intl.DateTimeFormat("zh-CN", {
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  hour12: false,
+});
+
+document.documentElement.classList.toggle("compact-mode", IS_COMPACT_MODE);
+if (IS_COMPACT_MODE) document.title = "笑蛙冲刺 · 小窗模式";
 
 type ObstacleKind = "crate" | "spike" | "drone" | "pit";
 type PickupKind = "laugh" | "rage";
@@ -68,6 +78,12 @@ class TinyAudio {
     }
     if (this.context.state === "suspended") {
       void this.context.resume();
+    }
+  }
+
+  suspend(): void {
+    if (this.context?.state === "running") {
+      void this.context.suspend();
     }
   }
 
@@ -162,13 +178,22 @@ class RunnerScene extends Phaser.Scene {
   private lastHorizontalDirection = 1;
   private leaderboardEntries: LeaderboardEntry[] = [];
   private paused = false;
+  private cleared = false;
+  private clearClockTimer?: number;
   private audio = new TinyAudio();
   private pauseKeyHandler = (event: KeyboardEvent): void => {
     if (event.repeat || (event.code !== "KeyP" && event.code !== "Escape")) return;
-    if (!this.running || this.over) return;
+    if (!this.running || this.over || this.cleared) return;
     event.preventDefault();
     if (this.paused) this.resumeGame();
     else this.pauseGame();
+  };
+  private clearKeyHandler = (event: KeyboardEvent): void => {
+    if (event.repeat || event.code !== "KeyH") return;
+    if ((!this.running || this.over) && !this.cleared) return;
+    event.preventDefault();
+    if (this.cleared) this.restoreFromClearScreen();
+    else this.clearScreen();
   };
 
   constructor() {
@@ -210,6 +235,8 @@ class RunnerScene extends Phaser.Scene {
     this.lastHorizontalDirection = 1;
     this.leaderboardEntries = this.loadLeaderboard();
     this.paused = false;
+    this.cleared = false;
+    this.hideClearScreen();
 
     this.createBackground();
     this.frog = this.createFrog();
@@ -512,6 +539,8 @@ class RunnerScene extends Phaser.Scene {
     const pauseButton = document.querySelector<HTMLButtonElement>("#pauseButton");
     const resumeButton = document.querySelector<HTMLButtonElement>("#resumeButton");
     const pauseHomeButton = document.querySelector<HTMLButtonElement>("#pauseHomeButton");
+    const clearScreenButton = document.querySelector<HTMLButtonElement>("#clearScreenButton");
+    const clearScreenRestore = document.querySelector<HTMLButtonElement>("#clearScreenRestore");
     if (leftButton) {
       leftButton.onpointerdown = (event) => { event.stopPropagation(); this.touchLeftDown = true; };
       leftButton.onpointerup = () => { this.touchLeftDown = false; };
@@ -557,11 +586,27 @@ class RunnerScene extends Phaser.Scene {
         this.returnToHome();
       };
     }
+    if (clearScreenButton) {
+      clearScreenButton.onclick = (event) => {
+        event.stopPropagation();
+        this.clearScreen();
+      };
+    }
+    if (clearScreenRestore) {
+      clearScreenRestore.onclick = (event) => {
+        event.stopPropagation();
+        this.restoreFromClearScreen();
+      };
+    }
 
     window.removeEventListener("keydown", this.pauseKeyHandler);
     window.addEventListener("keydown", this.pauseKeyHandler);
+    window.removeEventListener("keydown", this.clearKeyHandler);
+    window.addEventListener("keydown", this.clearKeyHandler);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       window.removeEventListener("keydown", this.pauseKeyHandler);
+      window.removeEventListener("keydown", this.clearKeyHandler);
+      if (this.clearClockTimer !== undefined) window.clearInterval(this.clearClockTimer);
     });
   }
 
@@ -752,6 +797,7 @@ class RunnerScene extends Phaser.Scene {
     this.gameFrame.dataset.laughCharge = String(this.laughCharge);
     this.gameFrame.dataset.running = String(this.running && !this.over && !this.paused);
     this.gameFrame.dataset.paused = String(this.paused);
+    this.gameFrame.dataset.cleared = String(this.cleared);
     this.gameFrame.dataset.protected = String(isLaughProtected(time, this.laughGuardUntil));
     this.gameFrame.dataset.rageRatio = effectRemainingRatio(
       time,
@@ -835,8 +881,10 @@ class RunnerScene extends Phaser.Scene {
   }
 
   private setPauseButtonVisible(visible: boolean): void {
-    const button = document.querySelector<HTMLButtonElement>("#pauseButton");
-    button?.classList.toggle("is-hidden", !visible);
+    const pauseButton = document.querySelector<HTMLButtonElement>("#pauseButton");
+    const clearButton = document.querySelector<HTMLButtonElement>("#clearScreenButton");
+    pauseButton?.classList.toggle("is-hidden", !visible);
+    clearButton?.classList.toggle("is-hidden", !visible);
   }
 
   private hidePauseOverlay(): void {
@@ -849,7 +897,7 @@ class RunnerScene extends Phaser.Scene {
   }
 
   private pauseGame(): void {
-    if (!this.running || this.over || this.paused) return;
+    if (!this.running || this.over || this.paused || this.cleared) return;
     this.paused = true;
     this.setPauseButtonVisible(false);
     const overlay = document.querySelector<HTMLDivElement>("#pauseOverlay");
@@ -860,17 +908,67 @@ class RunnerScene extends Phaser.Scene {
   }
 
   private resumeGame(): void {
-    if (!this.paused) return;
+    if (!this.paused || this.cleared) return;
     this.paused = false;
     this.hidePauseOverlay();
     this.setPauseButtonVisible(true);
+    this.audio.unlock();
     this.scene.resume();
+    this.syncGameState(this.time.now);
+  }
+
+  private updateClearClock(): void {
+    const clock = document.querySelector<HTMLTimeElement>("#clearScreenClock");
+    if (clock) clock.textContent = clearClockFormatter.format(new Date());
+  }
+
+  private hideClearScreen(): void {
+    const overlay = document.querySelector<HTMLDivElement>("#clearScreenOverlay");
+    overlay?.classList.add("is-hidden");
+    overlay?.setAttribute("aria-hidden", "true");
+    document.body.classList.remove("is-cleared");
+    if (this.clearClockTimer !== undefined) {
+      window.clearInterval(this.clearClockTimer);
+      this.clearClockTimer = undefined;
+    }
+  }
+
+  private clearScreen(): void {
+    if (!this.running || this.over || this.cleared) return;
+    this.cleared = true;
+    if (!this.paused) {
+      this.paused = true;
+      this.scene.pause();
+    }
+    this.hidePauseOverlay();
+    this.setPauseButtonVisible(false);
+    this.audio.suspend();
+    this.updateClearClock();
+    const overlay = document.querySelector<HTMLDivElement>("#clearScreenOverlay");
+    overlay?.classList.remove("is-hidden");
+    overlay?.setAttribute("aria-hidden", "false");
+    document.body.classList.add("is-cleared");
+    if (this.clearClockTimer !== undefined) window.clearInterval(this.clearClockTimer);
+    this.clearClockTimer = window.setInterval(() => this.updateClearClock(), 1000);
+    this.syncGameState(this.time.now);
+  }
+
+  private restoreFromClearScreen(): void {
+    if (!this.cleared) return;
+    this.cleared = false;
+    this.hideClearScreen();
+    const overlay = document.querySelector<HTMLDivElement>("#pauseOverlay");
+    overlay?.classList.remove("is-hidden");
+    overlay?.setAttribute("aria-hidden", "false");
+    this.setPauseButtonVisible(false);
     this.syncGameState(this.time.now);
   }
 
   private returnToHome(): void {
     const wasPaused = this.paused;
     this.paused = false;
+    this.cleared = false;
+    this.hideClearScreen();
     this.hideLeaderboard();
     this.hidePauseOverlay();
     this.setPauseButtonVisible(false);
@@ -1181,6 +1279,8 @@ class RunnerScene extends Phaser.Scene {
     if (this.over) return;
     this.over = true;
     this.running = false;
+    this.cleared = false;
+    this.hideClearScreen();
     this.hintVersion += 1;
     this.hintText.setVisible(false);
     this.frogStatusStack?.classList.add("is-hidden");
@@ -1286,6 +1386,40 @@ class RunnerScene extends Phaser.Scene {
     });
   }
 }
+
+function setupCompactModeLauncher(): void {
+  const button = document.querySelector<HTMLButtonElement>("#compactButton");
+  if (!button) return;
+  if (IS_COMPACT_MODE) {
+    button.hidden = true;
+    return;
+  }
+
+  button.onclick = () => {
+    const url = new URL(window.location.href);
+    url.searchParams.set("compact", "1");
+    const width = 720;
+    const height = 480;
+    const left = Math.max(0, Math.round((window.screen.availWidth - width) / 2));
+    const top = Math.max(0, Math.round((window.screen.availHeight - height) / 2));
+    const popup = window.open(
+      url.toString(),
+      "laugh-runner-mini",
+      `popup=yes,width=${width},height=${height},left=${left},top=${top}`,
+    );
+    if (!popup) {
+      const originalLabel = button.textContent;
+      button.textContent = "请允许弹窗";
+      window.setTimeout(() => {
+        button.textContent = originalLabel;
+      }, 1800);
+      return;
+    }
+    popup.focus();
+  };
+}
+
+setupCompactModeLauncher();
 
 new Phaser.Game({
   type: Phaser.AUTO,

@@ -75,6 +75,29 @@ h1 {
   box-shadow: 3px 3px 0 var(--ink);
 }
 
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.utility-button {
+  padding: 7px 12px;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  background: var(--yellow);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 900;
+  box-shadow: 3px 3px 0 var(--ink);
+  cursor: pointer;
+}
+
+.utility-button:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 var(--ink);
+}
+
 .game-frame {
   position: relative;
   overflow: hidden;
@@ -402,8 +425,58 @@ kbd {
   cursor: pointer;
 }
 
-.game-pause-button.is-hidden {
+.game-pause-button.is-hidden,
+.game-clear-button.is-hidden {
   display: none;
+}
+
+.game-clear-button {
+  position: absolute;
+  z-index: 6;
+  top: 16px;
+  right: 16px;
+  padding: 8px 12px;
+  border: 3px solid var(--ink);
+  border-radius: 12px;
+  background: rgba(255, 249, 223, 0.9);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 900;
+  box-shadow: 3px 4px 0 var(--ink);
+  cursor: pointer;
+}
+
+.clear-screen-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: grid;
+  place-items: center;
+  background: #f5f4ee;
+}
+
+.clear-screen-overlay.is-hidden {
+  display: none;
+}
+
+.clear-screen-restore {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: transparent;
+  color: #77766f;
+  cursor: default;
+}
+
+.clear-screen-restore time {
+  font-family: "Nunito", "PingFang SC", sans-serif;
+  font-size: clamp(42px, 8vw, 92px);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+body.is-cleared {
+  overflow: hidden;
 }
 
 .pause-card {
@@ -589,6 +662,7 @@ footer {
   .frog-status-stack,
   .overlay,
   .game-pause-button,
+  .game-clear-button,
   .touch-controls {
     visibility: hidden;
   }
@@ -620,5 +694,106 @@ footer {
     border-width: 3px;
     border-radius: 16px;
     box-shadow: 5px 6px 0 var(--ink);
+  }
+}
+
+html.compact-mode,
+html.compact-mode body {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  overflow: hidden;
+  background: #18262d;
+}
+
+.compact-mode .app-shell {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  place-items: center;
+}
+
+.compact-mode .topbar {
+  display: none;
+}
+
+.compact-mode .game-frame {
+  width: min(100vw, calc(100vh * 16 / 9));
+  max-height: 100vh;
+  min-height: 0;
+  aspect-ratio: 16 / 9;
+  border-width: 3px;
+  border-radius: 12px;
+  box-shadow: none;
+}
+
+.compact-mode .overlay {
+  padding: 10px;
+}
+
+.compact-mode .overlay-card {
+  width: min(570px, 94%);
+  padding: 14px;
+  border-width: 3px;
+  border-radius: 16px;
+  box-shadow: 5px 5px 0 var(--ink);
+}
+
+.compact-mode .hero-preview {
+  width: 64px;
+  height: 70px;
+  margin: -48px auto 0;
+}
+
+.compact-mode .overlay-card h2 {
+  margin: 2px 0 5px;
+  font-size: 30px;
+}
+
+.compact-mode .overlay-card > p:not(.overlay-kicker) {
+  display: none;
+}
+
+.compact-mode .key-guide {
+  gap: 4px;
+  margin: 8px 0;
+}
+
+.compact-mode .key-guide span {
+  padding: 4px 6px;
+  border-width: 1px;
+  font-size: 10px;
+}
+
+.compact-mode .primary-button,
+.compact-mode .secondary-button {
+  padding: 8px 14px;
+  border-width: 2px;
+  border-radius: 9px;
+  font-size: 13px;
+  box-shadow: 2px 3px 0 var(--ink);
+}
+
+.compact-mode .pause-card,
+.compact-mode .leaderboard-card {
+  border-width: 3px;
+  border-radius: 15px;
+  box-shadow: 5px 5px 0 var(--ink);
+}
+
+@media (orientation: portrait) and (max-width: 820px) {
+  .compact-mode #game,
+  .compact-mode .frog-sprite,
+  .compact-mode .frog-status-stack,
+  .compact-mode .overlay,
+  .compact-mode .game-pause-button,
+  .compact-mode .game-clear-button,
+  .compact-mode .touch-controls {
+    visibility: visible;
+  }
+
+  .compact-mode .rotate-note {
+    display: none;
   }
 }
