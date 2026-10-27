@@ -16,7 +16,9 @@ function createGameWindow() {
     maximizable: false,
     fullscreenable: false,
     autoHideMenuBar: true,
-    backgroundColor: "#a8e5ec",
+    transparent: true,
+    hasShadow: false,
+    backgroundColor: "#00000000",
     show: false,
     webPreferences: {
       contextIsolation: true,
@@ -27,6 +29,7 @@ function createGameWindow() {
   });
 
   gameWindow.setMenuBarVisibility(false);
+  gameWindow.center();
   gameWindow.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
   gameWindow.webContents.on("before-input-event", (event, input) => {
     if (!(input.meta || input.control)) return;

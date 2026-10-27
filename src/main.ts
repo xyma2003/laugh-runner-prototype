@@ -28,7 +28,6 @@ const IS_DESKTOP_MODE = new URLSearchParams(window.location.search).get("desktop
 const clearClockFormatter = new Intl.DateTimeFormat("zh-CN", {
   hour: "2-digit",
   minute: "2-digit",
-  second: "2-digit",
   hour12: false,
 });
 

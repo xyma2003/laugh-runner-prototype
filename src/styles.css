@@ -717,15 +717,58 @@ html.compact-mode body {
   border-radius: 0;
 }
 
+html.compact-mode.desktop-mode,
+html.compact-mode.desktop-mode body {
+  background: transparent;
+}
+
 .desktop-mode .desktop-drag-handle {
   position: absolute;
-  z-index: 20;
+  z-index: 5;
   top: 0;
   right: 0;
   left: 0;
   display: block;
-  height: 8px;
+  height: 28px;
+  cursor: grab;
   -webkit-app-region: drag;
+}
+
+.desktop-mode .desktop-drag-handle:active {
+  cursor: grabbing;
+}
+
+.desktop-mode body.is-cleared .app-shell {
+  visibility: hidden;
+}
+
+.desktop-mode .clear-screen-overlay {
+  display: block;
+  background: transparent;
+  -webkit-app-region: drag;
+}
+
+.desktop-mode .clear-screen-overlay.is-hidden {
+  display: none;
+}
+
+.desktop-mode .clear-screen-restore {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  width: auto;
+  height: auto;
+  padding: 0;
+  color: rgba(45, 48, 50, 0.62);
+  cursor: pointer;
+  -webkit-app-region: no-drag;
+}
+
+.desktop-mode .clear-screen-restore time {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.62);
 }
 
 .compact-mode .overlay {
