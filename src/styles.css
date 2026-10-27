@@ -75,29 +75,6 @@ h1 {
   box-shadow: 3px 3px 0 var(--ink);
 }
 
-.topbar-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.utility-button {
-  padding: 7px 12px;
-  border: 2px solid var(--ink);
-  border-radius: 999px;
-  background: var(--yellow);
-  color: var(--ink);
-  font-size: 12px;
-  font-weight: 900;
-  box-shadow: 3px 3px 0 var(--ink);
-  cursor: pointer;
-}
-
-.utility-button:active {
-  transform: translate(2px, 2px);
-  box-shadow: 1px 1px 0 var(--ink);
-}
-
 .game-frame {
   position: relative;
   overflow: hidden;
@@ -108,6 +85,10 @@ h1 {
   background: #a9e4ec;
   box-shadow: 10px 12px 0 rgba(24, 38, 45, 0.94);
   touch-action: none;
+}
+
+.desktop-drag-handle {
+  display: none;
 }
 
 #game,
@@ -726,6 +707,25 @@ html.compact-mode body {
   border-width: 3px;
   border-radius: 12px;
   box-shadow: none;
+}
+
+.desktop-mode .game-frame {
+  width: 100vw;
+  height: 100vh;
+  max-height: none;
+  border: 0;
+  border-radius: 0;
+}
+
+.desktop-mode .desktop-drag-handle {
+  position: absolute;
+  z-index: 20;
+  top: 0;
+  right: 0;
+  left: 0;
+  display: block;
+  height: 8px;
+  -webkit-app-region: drag;
 }
 
 .compact-mode .overlay {

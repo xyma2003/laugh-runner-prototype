@@ -24,6 +24,7 @@ const FLOOR_Y = 586;
 const PLAYER_X = 210;
 const LEADERBOARD_STORAGE_KEY = "laugh-runner-leaderboard-v1";
 const IS_COMPACT_MODE = new URLSearchParams(window.location.search).get("compact") === "1";
+const IS_DESKTOP_MODE = new URLSearchParams(window.location.search).get("desktop") === "1";
 const clearClockFormatter = new Intl.DateTimeFormat("zh-CN", {
   hour: "2-digit",
   minute: "2-digit",
@@ -32,7 +33,12 @@ const clearClockFormatter = new Intl.DateTimeFormat("zh-CN", {
 });
 
 document.documentElement.classList.toggle("compact-mode", IS_COMPACT_MODE);
+document.documentElement.classList.toggle("desktop-mode", IS_DESKTOP_MODE);
 if (IS_COMPACT_MODE) document.title = "笑蛙冲刺 · 小窗模式";
+
+function assetUrl(fileName: string): string {
+  return new URL(`assets/${fileName}`, document.baseURI).toString();
+}
 
 type ObstacleKind = "crate" | "spike" | "drone" | "pit";
 type PickupKind = "laugh" | "rage";
@@ -205,8 +211,8 @@ class RunnerScene extends Phaser.Scene {
   }
 
   preload(): void {
-    this.load.image("naiwa-laugh-icon", "/assets/naiwa-belly-laugh.gif");
-    this.load.image("naiwa-punching-icon", "/assets/naiwa-punching.gif");
+    this.load.image("naiwa-laugh-icon", assetUrl("naiwa-belly-laugh.gif"));
+    this.load.image("naiwa-punching-icon", assetUrl("naiwa-punching.gif"));
   }
 
   create(): void {
@@ -766,10 +772,10 @@ class RunnerScene extends Phaser.Scene {
     if (!this.frogSprite || this.frogSpriteState === state) return;
     this.frogSpriteState = state;
     const sources = {
-      "running-left": "/assets/naiwa-running-left.gif",
-      "running-right": "/assets/naiwa-running-right.gif",
-      "belly-laugh": "/assets/naiwa-belly-laugh.gif",
-      punching: "/assets/naiwa-punching.gif",
+      "running-left": assetUrl("naiwa-running-left.gif"),
+      "running-right": assetUrl("naiwa-running-right.gif"),
+      "belly-laugh": assetUrl("naiwa-belly-laugh.gif"),
+      punching: assetUrl("naiwa-punching.gif"),
     } as const;
     this.frogSprite.src = sources[state];
     this.frogSprite.classList.toggle("is-laughing", state === "belly-laugh");
@@ -1386,40 +1392,6 @@ class RunnerScene extends Phaser.Scene {
     });
   }
 }
-
-function setupCompactModeLauncher(): void {
-  const button = document.querySelector<HTMLButtonElement>("#compactButton");
-  if (!button) return;
-  if (IS_COMPACT_MODE) {
-    button.hidden = true;
-    return;
-  }
-
-  button.onclick = () => {
-    const url = new URL(window.location.href);
-    url.searchParams.set("compact", "1");
-    const width = 720;
-    const height = 480;
-    const left = Math.max(0, Math.round((window.screen.availWidth - width) / 2));
-    const top = Math.max(0, Math.round((window.screen.availHeight - height) / 2));
-    const popup = window.open(
-      url.toString(),
-      "laugh-runner-mini",
-      `popup=yes,width=${width},height=${height},left=${left},top=${top}`,
-    );
-    if (!popup) {
-      const originalLabel = button.textContent;
-      button.textContent = "请允许弹窗";
-      window.setTimeout(() => {
-        button.textContent = originalLabel;
-      }, 1800);
-      return;
-    }
-    popup.focus();
-  };
-}
-
-setupCompactModeLauncher();
 
 new Phaser.Game({
   type: Phaser.AUTO,
