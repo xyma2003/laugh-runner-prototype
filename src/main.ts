@@ -17,6 +17,7 @@ import {
   postponeObstacleSpawn,
   runnerSpeed,
 } from "./gameRules";
+import { mobileViewportMode } from "./viewportMode";
 
 const GAME_WIDTH = 1280;
 const GAME_HEIGHT = 720;
@@ -35,6 +36,48 @@ const clearClockFormatter = new Intl.DateTimeFormat("zh-CN", {
 document.documentElement.classList.toggle("compact-mode", IS_COMPACT_MODE);
 document.documentElement.classList.toggle("desktop-mode", IS_DESKTOP_MODE);
 if (IS_COMPACT_MODE) document.title = "笑蛙冲刺 · 小窗模式";
+
+function setupMobileOrientation(): void {
+  const root = document.documentElement;
+  const rotateNote = document.querySelector<HTMLElement>("#rotateNote");
+  const continueButton = document.querySelector<HTMLButtonElement>("#forceLandscapeButton");
+  const visualViewport = window.visualViewport;
+  let orientationOverride = false;
+  let resyncTimers: number[] = [];
+
+  const sync = (): void => {
+    const width = visualViewport?.width ?? window.innerWidth;
+    const height = visualViewport?.height ?? window.innerHeight;
+    const isTouchDevice =
+      navigator.maxTouchPoints > 0 || window.matchMedia("(hover: none), (pointer: coarse)").matches;
+    const mode = mobileViewportMode(width, height, isTouchDevice, IS_COMPACT_MODE);
+    const showRotateNote = mode === "portrait" && !orientationOverride;
+
+    root.classList.toggle("mobile-portrait", mode === "portrait");
+    root.classList.toggle("mobile-landscape", mode === "landscape");
+    root.classList.toggle("orientation-override", orientationOverride);
+    rotateNote?.setAttribute("aria-hidden", String(!showRotateNote));
+  };
+
+  const queueSync = (): void => {
+    resyncTimers.forEach((timer) => window.clearTimeout(timer));
+    sync();
+    resyncTimers = [120, 420, 900].map((delay) => window.setTimeout(sync, delay));
+  };
+
+  continueButton?.addEventListener("click", () => {
+    orientationOverride = true;
+    sync();
+  });
+
+  window.addEventListener("resize", queueSync, { passive: true });
+  window.addEventListener("orientationchange", queueSync, { passive: true });
+  visualViewport?.addEventListener("resize", queueSync, { passive: true });
+  window.screen.orientation?.addEventListener("change", queueSync);
+  sync();
+}
+
+setupMobileOrientation();
 
 function setupDesktopLauncher(): void {
   const button = document.querySelector<HTMLButtonElement>("#desktopLaunchButton");
