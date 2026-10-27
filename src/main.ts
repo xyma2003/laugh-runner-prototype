@@ -53,6 +53,8 @@ function setupMobileOrientation(): void {
     const mode = mobileViewportMode(width, height, isTouchDevice, IS_COMPACT_MODE);
     const showRotateNote = mode === "portrait" && !orientationOverride;
 
+    root.style.setProperty("--mobile-viewport-width", `${Math.round(width)}px`);
+    root.style.setProperty("--mobile-viewport-height", `${Math.round(height)}px`);
     root.classList.toggle("mobile-portrait", mode === "portrait");
     root.classList.toggle("mobile-landscape", mode === "landscape");
     root.classList.toggle("orientation-override", orientationOverride);

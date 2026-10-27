@@ -6,9 +6,18 @@ export function mobileViewportMode(
   isTouchDevice: boolean,
   isCompactMode: boolean,
 ): MobileViewportMode {
-  if (isCompactMode || !isTouchDevice || width <= 0 || height <= 0 || Math.min(width, height) > 820) {
+  const isPortrait = height > width;
+  const looksPhoneSized = isPortrait ? width <= 520 : height <= 520;
+
+  if (
+    isCompactMode ||
+    width <= 0 ||
+    height <= 0 ||
+    Math.min(width, height) > 820 ||
+    (!isTouchDevice && !looksPhoneSized)
+  ) {
     return "desktop";
   }
 
-  return height > width ? "portrait" : "landscape";
+  return isPortrait ? "portrait" : "landscape";
 }

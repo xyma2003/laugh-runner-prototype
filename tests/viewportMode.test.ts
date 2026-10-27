@@ -10,8 +10,12 @@ describe("mobile viewport mode", () => {
     expect(mobileViewportMode(844, 390, true, false)).toBe("landscape");
   });
 
-  it("does not apply the mobile gate to desktop or compact windows", () => {
-    expect(mobileViewportMode(390, 844, false, false)).toBe("desktop");
+  it("recognizes a phone-sized webview even when it does not expose touch signals", () => {
+    expect(mobileViewportMode(844, 390, false, false)).toBe("landscape");
+  });
+
+  it("does not apply the mobile gate to normal desktop or compact windows", () => {
+    expect(mobileViewportMode(1280, 720, false, false)).toBe("desktop");
     expect(mobileViewportMode(390, 844, true, true)).toBe("desktop");
   });
 });
