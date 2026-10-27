@@ -18,6 +18,7 @@ import {
   runnerSpeed,
 } from "./gameRules";
 import { mobileViewportMode } from "./viewportMode";
+import { bindTouchActionButton, bindTouchHoldButton } from "./touchControls";
 
 const GAME_WIDTH = 1280;
 const GAME_HEIGHT = 720;
@@ -625,20 +626,18 @@ class RunnerScene extends Phaser.Scene {
     const clearScreenButton = document.querySelector<HTMLButtonElement>("#clearScreenButton");
     const clearScreenRestore = document.querySelector<HTMLButtonElement>("#clearScreenRestore");
     if (leftButton) {
-      leftButton.onpointerdown = (event) => { event.stopPropagation(); this.touchLeftDown = true; };
-      leftButton.onpointerup = () => { this.touchLeftDown = false; };
-      leftButton.onpointerleave = () => { this.touchLeftDown = false; };
-      leftButton.onpointercancel = () => { this.touchLeftDown = false; };
+      bindTouchHoldButton(leftButton, (held) => {
+        this.touchLeftDown = held;
+      });
     }
     if (rightButton) {
-      rightButton.onpointerdown = (event) => { event.stopPropagation(); this.touchRightDown = true; };
-      rightButton.onpointerup = () => { this.touchRightDown = false; };
-      rightButton.onpointerleave = () => { this.touchRightDown = false; };
-      rightButton.onpointercancel = () => { this.touchRightDown = false; };
+      bindTouchHoldButton(rightButton, (held) => {
+        this.touchRightDown = held;
+      });
     }
-    if (jumpButton) jumpButton.onclick = (event) => { event.stopPropagation(); this.jump(); };
-    if (rollButton) rollButton.onclick = (event) => { event.stopPropagation(); this.roll(); };
-    if (laughButton) laughButton.onclick = (event) => { event.stopPropagation(); this.releaseLaugh(); };
+    if (jumpButton) bindTouchActionButton(jumpButton, () => this.jump());
+    if (rollButton) bindTouchActionButton(rollButton, () => this.roll());
+    if (laughButton) bindTouchActionButton(laughButton, () => this.releaseLaugh());
     if (leaderboardButton) {
       leaderboardButton.onclick = (event) => {
         event.stopPropagation();

@@ -636,6 +636,10 @@ body.is-cleared {
   border-radius: 14px;
   background: rgba(255, 249, 223, 0.88);
   pointer-events: auto;
+  touch-action: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
 }
 
 .touch-controls .laugh-button {
