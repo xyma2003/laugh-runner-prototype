@@ -25,6 +25,7 @@ const PLAYER_X = 210;
 const LEADERBOARD_STORAGE_KEY = "laugh-runner-leaderboard-v1";
 const IS_COMPACT_MODE = new URLSearchParams(window.location.search).get("compact") === "1";
 const IS_DESKTOP_MODE = new URLSearchParams(window.location.search).get("desktop") === "1";
+const IS_LOCAL_HOST = window.location.hostname === "127.0.0.1" || window.location.hostname === "localhost";
 const clearClockFormatter = new Intl.DateTimeFormat("zh-CN", {
   hour: "2-digit",
   minute: "2-digit",
@@ -34,6 +35,38 @@ const clearClockFormatter = new Intl.DateTimeFormat("zh-CN", {
 document.documentElement.classList.toggle("compact-mode", IS_COMPACT_MODE);
 document.documentElement.classList.toggle("desktop-mode", IS_DESKTOP_MODE);
 if (IS_COMPACT_MODE) document.title = "笑蛙冲刺 · 小窗模式";
+
+function setupDesktopLauncher(): void {
+  const button = document.querySelector<HTMLButtonElement>("#desktopLaunchButton");
+  if (!button || !IS_LOCAL_HOST || IS_COMPACT_MODE) return;
+
+  button.hidden = false;
+  const idleLabel = button.textContent ?? "无边框小窗";
+  button.addEventListener("click", async () => {
+    if (button.disabled) return;
+
+    button.disabled = true;
+    button.textContent = "正在打开…";
+
+    try {
+      const response = await fetch("/__launch-desktop", {
+        method: "POST",
+        headers: { Accept: "application/json" },
+      });
+      if (!response.ok) throw new Error(`Desktop launcher returned ${response.status}`);
+      button.textContent = "已打开";
+    } catch {
+      button.textContent = "启动失败";
+    } finally {
+      window.setTimeout(() => {
+        button.disabled = false;
+        button.textContent = idleLabel;
+      }, 1600);
+    }
+  });
+}
+
+setupDesktopLauncher();
 
 function assetUrl(fileName: string): string {
   return new URL(`assets/${fileName}`, document.baseURI).toString();

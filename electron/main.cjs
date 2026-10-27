@@ -6,6 +6,19 @@ const WINDOW_HEIGHT = 405;
 
 let gameWindow = null;
 
+function getDevelopmentUrl() {
+  const candidate = process.env.LAUGH_RUNNER_URL;
+  if (!candidate) return null;
+
+  try {
+    const url = new URL(candidate);
+    const isLoopback = url.hostname === "127.0.0.1" || url.hostname === "localhost";
+    return url.protocol === "http:" && isLoopback ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
 function createGameWindow() {
   gameWindow = new BrowserWindow({
     width: WINDOW_WIDTH,
@@ -47,17 +60,35 @@ function createGameWindow() {
     gameWindow = null;
   });
 
-  void gameWindow.loadFile(path.join(__dirname, "..", "dist", "index.html"), {
-    query: { compact: "1", desktop: "1" },
-  });
+  const developmentUrl = getDevelopmentUrl();
+  if (developmentUrl) {
+    void gameWindow.loadURL(developmentUrl);
+  } else {
+    void gameWindow.loadFile(path.join(__dirname, "..", "dist", "index.html"), {
+      query: { compact: "1", desktop: "1" },
+    });
+  }
 }
 
-app.whenReady().then(() => {
-  createGameWindow();
-});
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
 
-app.on("activate", () => {
-  if (BrowserWindow.getAllWindows().length === 0) createGameWindow();
-});
+if (!gotSingleInstanceLock) {
+  app.quit();
+} else {
+  app.on("second-instance", () => {
+    if (!gameWindow) return;
+    if (gameWindow.isMinimized()) gameWindow.restore();
+    gameWindow.show();
+    gameWindow.focus();
+  });
 
-app.on("window-all-closed", () => app.quit());
+  app.whenReady().then(() => {
+    createGameWindow();
+  });
+
+  app.on("activate", () => {
+    if (BrowserWindow.getAllWindows().length === 0) createGameWindow();
+  });
+
+  app.on("window-all-closed", () => app.quit());
+}
