@@ -19,6 +19,14 @@ import {
 } from "./gameRules";
 import { mobileViewportMode } from "./viewportMode";
 import { bindTouchActionButton, bindTouchHoldButton } from "./touchControls";
+import {
+  ObstaclePatternDeck,
+  PickupLaneDeck,
+  obstaclePatternCooldownMs,
+  pickupLaneY,
+  type ObstacleKind,
+  type ObstaclePattern,
+} from "./spawnPatterns";
 
 const GAME_WIDTH = 1280;
 const GAME_HEIGHT = 720;
@@ -118,7 +126,6 @@ function assetUrl(fileName: string): string {
   return new URL(`assets/${fileName}`, document.baseURI).toString();
 }
 
-type ObstacleKind = "crate" | "spike" | "drone" | "pit";
 type PickupKind = "laugh" | "rage";
 type FrogSpriteState = "running-left" | "running-right" | "belly-laugh" | "punching";
 
@@ -239,8 +246,11 @@ class RunnerScene extends Phaser.Scene {
   private nextObstacleAt = 0;
   private nextPickupAt = 0;
   private nextRageAt = 0;
-  private obstaclesSpawned = 0;
   private laughPickupsSpawned = 0;
+  private obstaclePatternDeck = new ObstaclePatternDeck();
+  private laughPickupLaneDeck = new PickupLaneDeck();
+  private ragePickupLaneDeck = new PickupLaneDeck();
+  private patternHistory: string[] = [];
   private scoreText!: Phaser.GameObjects.Text;
   private distanceText!: Phaser.GameObjects.Text;
   private hintText!: Phaser.GameObjects.Text;
@@ -312,8 +322,11 @@ class RunnerScene extends Phaser.Scene {
     this.laughGuardUntil = 0;
     this.rageUntil = 0;
     this.laughCharge = 0;
-    this.obstaclesSpawned = 0;
     this.laughPickupsSpawned = 0;
+    this.obstaclePatternDeck.reset();
+    this.laughPickupLaneDeck.reset();
+    this.ragePickupLaneDeck.reset();
+    this.patternHistory = [];
     this.hintVersion = 0;
     this.frogSpriteState = "";
     this.lastHorizontalDirection = 1;
@@ -391,7 +404,7 @@ class RunnerScene extends Phaser.Scene {
     this.syncFrogSprite(time);
     this.moveScenery(dt, speed);
     this.updateWorldObjects(dt, speed, time);
-    this.spawnWorldObjects(time);
+    this.spawnWorldObjects(time, speed);
     this.checkCollisions(time);
     this.updateHud(time);
     this.syncGameState(time);
@@ -889,6 +902,7 @@ class RunnerScene extends Phaser.Scene {
     this.gameFrame.dataset.spriteState = this.frogSpriteState;
     this.gameFrame.dataset.playerX = String(Math.round(this.playerX));
     this.gameFrame.dataset.obstacleCount = String(this.obstacles.length);
+    this.gameFrame.dataset.patternHistory = this.patternHistory.join(",");
     this.gameFrame.dataset.leaderboardCount = String(this.leaderboardEntries.length);
   }
 
@@ -1069,15 +1083,23 @@ class RunnerScene extends Phaser.Scene {
     }
   }
 
-  private spawnWorldObjects(time: number): void {
+  private spawnWorldObjects(time: number, speed: number): void {
     if (time >= this.nextObstacleAt) {
-      this.spawnObstacle();
-      const interval = Phaser.Math.Clamp(1450 - this.elapsedSeconds * 9, 820, 1450);
-      this.nextObstacleAt = time + interval + Phaser.Math.Between(-110, 170);
+      const pattern = this.spawnObstaclePattern();
+      this.nextObstacleAt = time + obstaclePatternCooldownMs(
+        pattern,
+        speed,
+        this.elapsedSeconds,
+        Math.random(),
+      );
     }
     if (time >= this.nextPickupAt) {
       this.spawnPickup("laugh");
-      this.nextPickupAt = time + (this.laughPickupsSpawned < 3 ? 1100 : Phaser.Math.Between(1900, 2850));
+      this.nextPickupAt = time + (
+        this.laughPickupsSpawned < 3
+          ? Phaser.Math.Between(850, 1350)
+          : Phaser.Math.Between(1700, 3100)
+      );
     }
     if (time >= this.nextRageAt) {
       this.spawnPickup("rage");
@@ -1085,22 +1107,18 @@ class RunnerScene extends Phaser.Scene {
     }
   }
 
-  private spawnObstacle(): void {
-    const roll = Math.random();
-    const kind: ObstacleKind = this.obstaclesSpawned === 0
-      ? "crate"
-      : this.obstaclesSpawned === 1
-        ? "spike"
-        : roll < 0.35
-          ? "crate"
-          : roll < 0.6
-            ? "spike"
-            : roll < 0.82
-              ? "drone"
-              : "pit";
-    this.obstaclesSpawned += 1;
+  private spawnObstaclePattern(): ObstaclePattern {
     // Keep enough reaction distance even when the player runs near the right edge.
-    const spawnX = Math.max(GAME_WIDTH + 100, this.playerX + 620);
+    const pattern = this.obstaclePatternDeck.next(this.elapsedSeconds);
+    const patternStartX = Math.max(GAME_WIDTH + 100, this.playerX + 620);
+    pattern.obstacles.forEach((obstacle) => {
+      this.spawnObstacle(obstacle.kind, patternStartX + obstacle.offsetX);
+    });
+    this.patternHistory = [...this.patternHistory, pattern.id].slice(-8);
+    return pattern;
+  }
+
+  private spawnObstacle(kind: ObstacleKind, spawnX: number): void {
     const node = this.add.container(spawnX, FLOOR_Y).setDepth(4);
     let width = 70;
     let height = 70;
@@ -1152,9 +1170,12 @@ class RunnerScene extends Phaser.Scene {
 
   private spawnPickup(kind: PickupKind): void {
     const isTeachingLaugh = kind === "laugh" && this.laughPickupsSpawned < 3;
-    const high = !isTeachingLaugh && Math.random() > 0.52;
-    const y = kind === "rage" ? FLOOR_Y - 120 : high ? FLOOR_Y - 205 : FLOOR_Y - 116;
-    const node = this.add.container(GAME_WIDTH + 90, y).setDepth(6);
+    const lane = kind === "laugh"
+      ? this.laughPickupLaneDeck.next(!isTeachingLaugh)
+      : this.ragePickupLaneDeck.next(false);
+    const y = pickupLaneY(FLOOR_Y, lane);
+    const spawnX = GAME_WIDTH + Phaser.Math.Between(70, 260);
+    const node = this.add.container(spawnX, y).setDepth(6);
     const fill = kind === "laugh" ? 0xffda48 : 0xff7448;
     const aura = this.add.circle(0, 0, kind === "laugh" ? 33 : 38, fill, 0.2);
     if (kind === "laugh") {
